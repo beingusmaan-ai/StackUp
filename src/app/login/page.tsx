@@ -55,8 +55,8 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="mb-6 flex flex-col items-center">
-          <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-lg ring-1 ring-black/10 mb-4">
-            <Image src="/logo.jfif" alt="StackUp" width={48} height={48} className="object-contain w-full h-full" />
+          <div className="mb-4">
+            <Image src="/logo.jfif" alt="Arthur Lawrence" width={80} height={80} className="object-contain rounded-2xl shadow-md" />
           </div>
           <h1 className="text-[22px] font-bold text-gray-900">Welcome back!</h1>
         </div>
