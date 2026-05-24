@@ -1,36 +1,122 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Marketing Hub — Internal Team Task Management
 
-## Getting Started
+A production-ready internal marketing team task management system built with Next.js 16, Prisma, and PostgreSQL.
 
-First, run the development server:
+## Features
+- Role-based auth (Admin / Team Lead / Team Member)
+- Task management: List view, Kanban board (drag & drop), Calendar view
+- Campaign management with progress tracking
+- Approval workflow (submit → approve / request revision)
+- Executive dashboard with charts (Recharts)
+- Team performance dashboard
+- Notification system
+- Daily reports
+- Dark / Light mode toggle
 
+## Tech Stack
+- **Frontend**: Next.js 16 (App Router), TypeScript, Tailwind CSS v4
+- **Backend**: Next.js API Routes
+- **Database**: PostgreSQL + Prisma ORM
+- **Auth**: NextAuth v5 (credentials)
+- **State**: Zustand + TanStack Query
+- **Charts**: Recharts
+- **Drag & Drop**: dnd-kit
+
+## Quick Start
+
+### 1. Prerequisites
+- Node.js 18+
+- PostgreSQL running locally
+
+### 2. Install dependencies
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd "Project Management/marketing-hub"
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Configure environment
+Edit `.env.local`:
+```env
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/marketing_hub"
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
+AUTH_SECRET="same-as-nextauth-secret"
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4. Set up database
+```bash
+npm run db:migrate    # Create tables
+npm run db:seed       # Load demo data
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 5. Start the app
+```bash
+npm run dev
+```
 
-## Learn More
+Visit [http://localhost:3000](http://localhost:3000)
 
-To learn more about Next.js, take a look at the following resources:
+## Demo Login Credentials
+| Role | Email | Password |
+|------|-------|----------|
+| **Admin** | admin@company.com | admin123 |
+| **Team Lead** | manager@company.com | manager123 |
+| Content Writer | emma@company.com | member123 |
+| Graphic Designer | marcus@company.com | member123 |
+| SEO Specialist | priya@company.com | member123 |
+| Social Media | jordan@company.com | member123 |
+| Video Editor | tyler@company.com | member123 |
+| Email Marketer | sophia@company.com | member123 |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Database Commands
+```bash
+npm run db:generate   # Regenerate Prisma client after schema changes
+npm run db:migrate    # Run pending migrations
+npm run db:push       # Push schema (dev, no migration file)
+npm run db:seed       # Seed demo data
+npm run db:studio     # Open Prisma Studio GUI
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Structure
+```
+src/
+├── app/
+│   ├── login/                 # Login page
+│   ├── (dashboard)/           # Protected app shell
+│   │   ├── dashboard/         # Executive dashboard
+│   │   ├── tasks/             # Task management (list/kanban/calendar)
+│   │   ├── campaigns/         # Campaign management
+│   │   ├── team/              # Team directory & workload
+│   │   ├── reports/           # Daily reports
+│   │   ├── notifications/     # Notification center
+│   │   ├── calendar/          # Calendar view
+│   │   └── settings/          # Account settings
+│   └── api/                   # REST API routes
+├── components/
+│   ├── dashboard/             # Metric cards, charts, activity feed
+│   ├── tasks/                 # Task cards, kanban, forms, detail panel
+│   ├── campaigns/             # Campaign cards & forms
+│   ├── team/                  # Team member components
+│   └── shared/                # Badges, avatars, page header
+├── lib/                       # Auth config, DB client, utilities
+├── store/                     # Zustand stores (UI, tasks)
+├── types/                     # TypeScript type definitions
+└── providers/                 # Session, Query, Theme providers
+prisma/
+├── schema.prisma              # Full database schema
+└── seed.ts                    # Demo data
+```
 
-## Deploy on Vercel
+## User Roles & Permissions
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Feature | Admin | Team Lead | Team Member |
+|---------|-------|-----------|-------------|
+| Create tasks | ✅ | ✅ | ✅ |
+| Assign tasks | ✅ | ✅ | ❌ |
+| Delete tasks | ✅ | ✅ | ❌ |
+| Create campaigns | ✅ | ✅ | ❌ |
+| Delete campaigns | ✅ | ❌ | ❌ |
+| Approve tasks | ✅ | ✅ | ❌ |
+| Create users | ✅ | ❌ | ❌ |
+| View all tasks | ✅ | ✅ | Own only |
+| View all dashboards | ✅ | ✅ | Limited |

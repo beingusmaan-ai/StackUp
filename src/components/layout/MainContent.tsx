@@ -9,8 +9,8 @@ export function MainContent({ children }: { children: React.ReactNode }) {
   return (
     <main
       className={cn(
-        "min-h-screen pt-16 transition-all duration-300",
-        sidebarCollapsed ? "ml-16" : "ml-64"
+        "min-h-screen pt-[64px] transition-all duration-200",
+        sidebarCollapsed ? "ml-[56px]" : "ml-[252px]"
       )}
     >
       <div className="p-6">{children}</div>

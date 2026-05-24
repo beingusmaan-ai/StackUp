@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
-export default auth((req) => {
+export default auth((req: Parameters<Parameters<typeof auth>[0]>[0]) => {
   const isLoggedIn = !!req.auth;
   const isAuthRoute = req.nextUrl.pathname.startsWith("/login");
   const isApiAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");

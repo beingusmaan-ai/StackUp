@@ -5,110 +5,245 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { cn, getInitials } from "@/lib/utils";
 import {
-  LayoutDashboard,
-  CheckSquare,
-  Megaphone,
-  Calendar,
-  Users,
-  BarChart3,
-  Bell,
-  Settings,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
+  LayoutDashboard, CheckSquare, Megaphone, CalendarDays,
+  Users, BarChart3, Bell, Settings, LogOut,
+  ChevronLeft, ChevronRight, Search,
+  Clock, BarChart2, ChevronDown, Layers, TrendingUp, AlertTriangle,
 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
+import Image from "next/image";
+import { useEffect, useState } from "react";
+import { TeamSwitcher } from "./TeamSwitcher";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/tasks", label: "Tasks", icon: CheckSquare },
-  { href: "/campaigns", label: "Campaigns", icon: Megaphone },
-  { href: "/calendar", label: "Calendar", icon: Calendar },
-  { href: "/team", label: "Team", icon: Users },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/settings", label: "Settings", icon: Settings },
+const NAV_GROUPS = [
+  {
+    label: "Main Menu",
+    items: [
+      { href: "/dashboard",     label: "Dashboard",     icon: LayoutDashboard },
+      { href: "/campaigns",     label: "Projects",      icon: Megaphone },
+      { href: "/tasks",         label: "Tasks",         icon: CheckSquare },
+      { href: "/calendar",      label: "Calendar",      icon: CalendarDays },
+      { href: "/workload",      label: "Workload",      icon: BarChart2 },
+      { href: "/templates",     label: "Templates",     icon: Layers },
+    ],
+  },
+  {
+    label: "Team",
+    items: [
+      { href: "/team",          label: "Team",          icon: Users },
+      { href: "/reports",       label: "Reports",       icon: BarChart3, hasReportsSub: true },
+    ],
+  },
+  {
+    label: "General",
+    items: [
+      { href: "/timesheets",    label: "Timesheets",    icon: Clock },
+      { href: "/notifications", label: "Notifications", icon: Bell },
+      { href: "/settings",      label: "Settings",      icon: Settings },
+    ],
+  },
+];
+
+const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+
+const REPORTS_SUB = [
+  { href: "/reports",              label: "Executive",    icon: LayoutDashboard },
+  { href: "/reports/team",         label: "Team",         icon: Users },
+  { href: "/reports/campaigns",    label: "Projects",     icon: Megaphone },
+  { href: "/reports/workload",     label: "Workload",     icon: BarChart2 },
+  { href: "/reports/risk",         label: "Risk",         icon: AlertTriangle },
+  { href: "/reports/productivity", label: "Productivity", icon: TrendingUp },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const [reportsOpen, setReportsOpen] = useState(false);
+
+  const onReportsPath = pathname === "/reports" || pathname.startsWith("/reports/");
+  useEffect(() => { if (onReportsPath) setReportsOpen(true); }, [onReportsPath]);
 
   return (
-    <aside
-      className={cn(
-        "fixed left-0 top-0 z-40 h-screen bg-slate-900 text-white flex flex-col transition-all duration-300",
-        sidebarCollapsed ? "w-16" : "w-64"
-      )}
-    >
-      {/* Logo */}
-      <div className="flex items-center h-16 px-4 border-b border-slate-800">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600 flex-shrink-0">
-          <BarChart3 className="w-4 h-4 text-white" />
-        </div>
-        {!sidebarCollapsed && (
-          <span className="ml-3 font-bold text-lg tracking-tight">Marketing Hub</span>
-        )}
-      </div>
+    <aside className="fixed left-0 top-0 z-40 h-screen flex">
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors group",
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-slate-800"
-              )}
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              {!sidebarCollapsed && <span>{item.label}</span>}
-            </Link>
-          );
-        })}
-      </nav>
+      {/* ── Left icon rail ── */}
+      <div className="w-[56px] bg-gradient-to-b from-[#ff2d1a] via-[#e8170b] to-[#9b0d06] flex flex-col h-full flex-shrink-0">
 
-      {/* User */}
-      <div className="border-t border-slate-800 p-3">
-        {!sidebarCollapsed && session?.user && (
-          <div className="flex items-center gap-3 px-2 py-2 rounded-xl mb-2">
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+        {/* Logo */}
+        <a
+          href="/dashboard"
+          className="flex items-center justify-center h-[64px] flex-shrink-0 hover:bg-white/10 transition-colors"
+        >
+          <div className="w-8 h-8 rounded-xl overflow-hidden bg-white flex items-center justify-center ring-2 ring-white/30">
+            <Image src="/logo.jfif" alt="AL" width={32} height={32} className="object-contain" />
+          </div>
+        </a>
+
+        {/* Nav icons */}
+        <nav className="flex-1 overflow-y-auto py-2 flex flex-col items-center gap-0.5 scrollbar-none">
+          {ALL_NAV_ITEMS.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={item.label}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-0.5 w-10 py-2 rounded-xl transition-all",
+                  isActive ? "bg-white/25" : "hover:bg-white/15"
+                )}
+              >
+                <item.icon className="w-[16px] h-[16px] text-white" />
+                <span className="text-[8px] text-white/80 font-medium leading-tight text-center max-w-full truncate px-0.5">
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* User avatar */}
+        {session?.user && (
+          <div className="p-2.5 flex-shrink-0 flex justify-center">
+            <div className="w-8 h-8 rounded-full bg-white/25 ring-2 ring-white/30 flex items-center justify-center text-[10px] font-bold text-white">
               {getInitials(session.user.name || "U")}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{session.user.name}</p>
-              <p className="text-xs text-slate-400 truncate">{session.user.role}</p>
             </div>
           </div>
         )}
-        <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          className={cn(
-            "flex items-center gap-3 w-full px-3 py-2 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors",
-            sidebarCollapsed && "justify-center"
-          )}
-        >
-          <LogOut className="w-4 h-4 flex-shrink-0" />
-          {!sidebarCollapsed && <span>Sign out</span>}
-        </button>
       </div>
+
+      {/* ── Right panel ── */}
+      {!sidebarCollapsed && (
+        <div className="w-[196px] bg-[#f2f2f2] dark:bg-[#0f172a] flex flex-col h-full border-r border-black/[0.07] dark:border-white/[0.06]">
+
+          {/* Header */}
+          <div className="h-[64px] px-3 flex items-center gap-2.5 border-b border-black/[0.07] dark:border-white/[0.06] flex-shrink-0">
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-bold text-gray-800 dark:text-white leading-tight truncate">Arthur Lawrence</p>
+              <p className="text-[10px] text-gray-400 dark:text-white/35 truncate">Marketing Hub</p>
+            </div>
+          </div>
+
+          {/* Team switcher */}
+          <div className="pt-2.5 px-2 flex-shrink-0">
+            <TeamSwitcher />
+          </div>
+
+          {/* Search */}
+          <div className="px-2 pt-2 pb-1 flex-shrink-0">
+            <div className="flex items-center gap-2 bg-white dark:bg-white/[0.05] border border-black/[0.08] dark:border-white/[0.07] rounded-lg px-2.5 py-1.5 cursor-pointer hover:border-[#e8170b]/40 transition-colors group">
+              <Search className="w-3 h-3 text-gray-400 dark:text-white/30 flex-shrink-0" />
+              <span className="text-[11px] text-gray-400 dark:text-white/30 flex-1">Search</span>
+              <kbd className="text-[9px] text-gray-300 dark:text-white/20 border border-black/10 dark:border-white/10 rounded px-1 font-mono">⌘K</kbd>
+            </div>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 overflow-y-auto px-2 py-1.5 space-y-4 scrollbar-none">
+            {NAV_GROUPS.map((group) => (
+              <div key={group.label}>
+                <p className="text-[9px] font-semibold text-gray-400 dark:text-white/25 uppercase tracking-widest px-2 mb-1">
+                  {group.label}
+                </p>
+                <div className="space-y-0.5">
+                  {group.items.map((item) => {
+                    const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                    const isReports = item.href === "/reports" && "hasReportsSub" in item;
+                    return (
+                      <div key={item.href}>
+                        <div className="flex items-center gap-0.5">
+                          <Link
+                            href={item.href}
+                            className={cn(
+                              "flex items-center gap-2 flex-1 px-2 py-1.5 rounded-lg text-[12px] font-medium transition-all",
+                              isActive
+                                ? "bg-white dark:bg-white/[0.07] text-[#e8170b] dark:text-[#e8170b] shadow-sm"
+                                : "text-gray-500 dark:text-white/45 hover:bg-white/70 dark:hover:bg-white/[0.05] hover:text-gray-800 dark:hover:text-white/80"
+                            )}
+                          >
+                            <item.icon className={cn(
+                              "w-3.5 h-3.5 flex-shrink-0",
+                              isActive ? "text-[#e8170b]" : "text-gray-400 dark:text-white/30"
+                            )} />
+                            <span className="truncate">{item.label}</span>
+                          </Link>
+                          {isReports && (
+                            <button
+                              onClick={() => setReportsOpen((v) => !v)}
+                              className="w-5 h-5 flex items-center justify-center rounded hover:bg-black/[0.06] dark:hover:bg-white/[0.08] text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+                            >
+                              <ChevronDown className={cn("w-3 h-3 transition-transform", reportsOpen && "rotate-180")} />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Reports sub-tree */}
+                        {isReports && reportsOpen && (
+                          <div className="ml-2 mt-0.5 space-y-0.5 border-l-2 border-[#e8170b]/20 pl-2.5">
+                            {REPORTS_SUB.map((sub) => {
+                              const subActive = pathname === sub.href;
+                              return (
+                                <Link
+                                  key={sub.href}
+                                  href={sub.href}
+                                  className={cn(
+                                    "flex items-center gap-1.5 py-1 px-1.5 rounded-lg text-[11px] transition-all",
+                                    subActive
+                                      ? "text-[#e8170b] font-semibold"
+                                      : "text-gray-400 dark:text-white/30 hover:text-gray-700 dark:hover:text-white/65"
+                                  )}
+                                >
+                                  <sub.icon className={cn("w-3 h-3 flex-shrink-0", subActive ? "text-[#e8170b]" : "text-gray-300 dark:text-white/20")} />
+                                  <span className="truncate">{sub.label}</span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </nav>
+
+          {/* User + sign out */}
+          <div className="border-t border-black/[0.06] dark:border-white/[0.06] p-2 flex-shrink-0 space-y-0.5">
+            {session?.user && (
+              <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg mb-0.5">
+                <div className="w-6 h-6 rounded-full bg-[#e8170b] flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0">
+                  {getInitials(session.user.name || "U")}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold text-gray-800 dark:text-white/90 truncate">{session.user.name}</p>
+                  <p className="text-[9px] text-gray-400 dark:text-white/35 truncate">{session.user.role?.replace(/_/g, " ")}</p>
+                </div>
+              </div>
+            )}
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-[12px] text-gray-400 dark:text-white/30 hover:bg-black/[0.05] dark:hover:bg-white/[0.05] hover:text-gray-600 dark:hover:text-white/60 transition-all"
+            >
+              <LogOut className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Sign out</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Collapse toggle */}
       <button
         onClick={toggleSidebar}
-        className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center hover:bg-slate-600 transition-colors"
-      >
-        {sidebarCollapsed ? (
-          <ChevronRight className="w-3 h-3 text-slate-300" />
-        ) : (
-          <ChevronLeft className="w-3 h-3 text-slate-300" />
+        className={cn(
+          "absolute top-[72px] w-5 h-5 rounded-full bg-white dark:bg-[#1e293b] border border-black/10 dark:border-white/10 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#334155] transition-colors shadow-md z-10",
+          sidebarCollapsed ? "left-[44px]" : "left-[240px]"
         )}
+      >
+        {sidebarCollapsed
+          ? <ChevronRight className="w-2.5 h-2.5 text-gray-500 dark:text-white/50" />
+          : <ChevronLeft className="w-2.5 h-2.5 text-gray-500 dark:text-white/50" />}
       </button>
     </aside>
   );

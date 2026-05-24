@@ -2,27 +2,31 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { Role } from "@prisma/client";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
-  },
+  pages: { signIn: "/login" },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
-        token.id = user.id;
-        token.role = (user as { role: Role }).role;
-        token.marketingRole = (user as { marketingRole: string }).marketingRole;
+        token.id = user.id ?? "";
+        token.role = (user as { role: string }).role;
+        token.marketingRole = (user as { marketingRole?: string }).marketingRole;
+        token.image = (user as { image?: string | null }).image ?? null;
+      }
+      // Called when client-side update({ image }) is triggered
+      if (trigger === "update" && "image" in (session ?? {})) {
+        token.image = (session as { image?: string | null }).image ?? null;
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id as string;
-        session.user.role = token.role as Role;
-        session.user.marketingRole = token.marketingRole as string;
+        session.user.role = token.role as string;
+        session.user.marketingRole = token.marketingRole as string | null;
+        session.user.image = (token.image as string | null) ?? null;
       }
       return session;
     },
@@ -43,11 +47,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!user || !user.passwordHash) return null;
 
-        const isValid = await bcrypt.compare(
-          credentials.password as string,
-          user.passwordHash
-        );
-
+        const isValid = await bcrypt.compare(credentials.password as string, user.passwordHash);
         if (!isValid) return null;
 
         return {

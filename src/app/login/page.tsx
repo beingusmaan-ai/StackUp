@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
@@ -36,7 +36,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md px-4">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#e8170b] mb-4">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
@@ -59,7 +59,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@company.com"
-                className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#e8170b] focus:border-transparent transition"
               />
             </div>
             <div>
@@ -71,25 +71,25 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                placeholder="••••••••"
-                className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#e8170b] focus:border-transparent transition"
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold transition-colors mt-2"
+              className="w-full py-3 px-4 rounded-xl bg-[#e8170b] hover:bg-[#c91409] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold transition-colors mt-2"
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
 
           <div className="mt-6 pt-6 border-t border-white/10">
-            <p className="text-xs text-slate-500 text-center">Demo credentials</p>
+            <p className="text-xs text-slate-500 text-center">Quick fill</p>
             <div className="mt-2 grid grid-cols-2 gap-2">
               {[
-                { label: "Admin", email: "admin@company.com", pass: "admin123" },
-                { label: "Manager", email: "manager@company.com", pass: "manager123" },
+                { label: "Admin", email: "aseem.jibran@arthurlawrence.net", pass: "admin123" },
+                { label: "Team Member", email: "saad.hassan@arthurlawrence.net", pass: "member123" },
               ].map((demo) => (
                 <button
                   key={demo.label}
@@ -106,3 +106,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

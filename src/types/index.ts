@@ -1,80 +1,151 @@
-import {
-  User,
-  Task,
-  Campaign,
-  TaskComment,
-  TaskAttachment,
-  TaskActivity,
-  ApprovalRequest,
-  Notification,
-  Role,
-  TaskStatus,
-  Priority,
-  CampaignStatus,
-  MarketingRole,
-} from "@prisma/client";
+// String union types replacing Prisma enums (SQLite compatibility)
+export type Role = "ADMIN" | "TEAM_LEAD" | "TEAM_MEMBER";
+export type MarketingRole =
+  | "CONTENT_WRITER" | "GRAPHIC_DESIGNER" | "VIDEO_EDITOR"
+  | "SOCIAL_MEDIA_MANAGER" | "SEO_SPECIALIST" | "PERFORMANCE_MARKETER"
+  | "CRM_EMAIL_MARKETER" | "MARKETING_MANAGER";
+export type TaskStatus =
+  | "TODO" | "ASSIGNED" | "IN_PROGRESS" | "WAITING_APPROVAL"
+  | "REVISION_REQUIRED" | "COMPLETED" | "BLOCKED";
+export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+export type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
+export type ApprovalStatus = "PENDING" | "APPROVED" | "REVISION_REQUIRED";
+export type NotificationType =
+  | "TASK_ASSIGNED" | "TASK_STATUS_CHANGED" | "TASK_COMMENT" | "TASK_DUE_SOON"
+  | "TASK_OVERDUE" | "APPROVAL_REQUESTED" | "APPROVAL_DECIDED" | "REVISION_REQUESTED"
+  | "TASK_COMPLETED" | "CAMPAIGN_UPDATED" | "SYSTEM";
 
-export type {
-  User,
-  Task,
-  Campaign,
-  TaskComment,
-  TaskAttachment,
-  TaskActivity,
-  ApprovalRequest,
-  Notification,
-  Role,
-  TaskStatus,
-  Priority,
-  CampaignStatus,
-  MarketingRole,
-};
+// Base model types (matching Prisma generated shape)
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  passwordHash?: string | null;
+  role: string;
+  marketingRole?: string | null;
+  department?: string | null;
+  isActive: boolean;
+  image?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
-export type TaskWithRelations = Task & {
-  assignees: { user: User; assignedAt: Date }[];
-  comments: (TaskComment & { author: User })[];
-  attachments: TaskAttachment[];
-  activityLog: (TaskActivity & { actor: User })[];
-  createdBy: User;
-  campaign?: Campaign | null;
-  subTasks: Task[];
-  approvalRequests: ApprovalRequest[];
-};
-
-export type CampaignWithTasks = Campaign & {
-  owner: User;
-  tasks: Task[];
-  _count: { tasks: number };
-};
-
-export type DashboardMetrics = {
-  totalTasks: number;
-  tasksDueToday: number;
-  overdueTasks: number;
-  completedThisWeek: number;
-  activeCampaigns: number;
-  tasksByStatus: { status: string; count: number }[];
-  teamPerformance: {
-    user: User;
-    assigned: number;
-    completed: number;
-    delayed: number;
-    completionRate: number;
-  }[];
-  recentActivity: (TaskActivity & { actor: User; task: Task })[];
-  campaignProgress: {
-    campaign: Campaign & { owner: User };
-    totalTasks: number;
-    completedTasks: number;
-    progress: number;
-  }[];
-};
-
-export type KanbanColumn = {
-  id: TaskStatus;
+export interface Task {
+  id: string;
   title: string;
-  tasks: TaskWithRelations[];
-};
+  description?: string | null;
+  taskType?: string | null;
+  status: string;
+  priority: string;
+  startDate?: Date | null;
+  dueDate?: Date | null;
+  estimatedHours?: number | null;
+  position: number;
+  campaignId?: string | null;
+  parentTaskId?: string | null;
+  createdById: string;
+  approvedById?: string | null;
+  requestingDepartmentId?: string | null;
+  assignedDepartmentId?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt?: Date | null;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  description?: string | null;
+  color: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DepartmentMember {
+  departmentId: string;
+  userId: string;
+  role: string;
+  joinedAt: Date;
+}
+
+export interface CampaignTemplate {
+  id: string;
+  name: string;
+  description?: string | null;
+  departmentId?: string | null;
+  templateTasks?: string | null;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  description?: string | null;
+  status: string;
+  startDate: Date;
+  endDate: Date;
+  budget?: number | null;
+  goals?: string | null;
+  ownerId: string;
+  departmentId?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  authorId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TaskAttachment {
+  id: string;
+  taskId: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+  uploadedAt: Date;
+}
+
+export interface TaskActivity {
+  id: string;
+  taskId: string;
+  actorId: string;
+  action: string;
+  fromValue?: string | null;
+  toValue?: string | null;
+  createdAt: Date;
+}
+
+export interface ApprovalRequest {
+  id: string;
+  taskId: string;
+  requesterId: string;
+  deciderId?: string | null;
+  status: string;
+  message?: string | null;
+  decisionNote?: string | null;
+  decidedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  taskId?: string | null;
+  createdAt: Date;
+}
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   TODO: "To Do",
