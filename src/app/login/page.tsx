@@ -59,9 +59,7 @@ export default function LoginPage() {
             <Image src="/logo.jfif" alt="StackUp" width={48} height={48} className="object-contain w-full h-full" />
           </div>
           <h1 className="text-[22px] font-bold text-gray-900">Welcome back!</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Internal platform · <span className="text-[#e8170b] font-medium">Arthur Lawrence</span>
-          </p>
+          <p className="text-sm text-gray-500 mt-0.5">by <span className="text-[#e8170b] font-medium">Arthur Lawrence</span></p>
         </div>
 
         {/* Form */}
