@@ -4,12 +4,14 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -32,145 +34,115 @@ export default function LoginPage() {
     }
   }
 
+  const canSubmit = email.trim() && password.trim();
+
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col items-center justify-between py-10 px-4 relative overflow-hidden">
 
-      {/* ── Left panel ── */}
-      <div className="hidden lg:flex lg:w-[52%] bg-gradient-to-br from-[#e8170b] via-[#c91409] to-[#7a0a04] flex-col justify-between p-12 relative overflow-hidden">
+      {/* Gradient background */}
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute inset-0 bg-white" />
+        <div className="absolute top-0 left-0 w-[45%] h-[55%] bg-gradient-to-br from-[#ffd4cc] via-[#ffb8c6] to-transparent opacity-60 blur-3xl" />
+        <div className="absolute top-0 right-0 w-[45%] h-[55%] bg-gradient-to-bl from-[#d4d4ff] via-[#c4b5fd] to-transparent opacity-50 blur-3xl" />
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[60%] h-[30%] bg-gradient-to-t from-[#fde4dc] to-transparent opacity-40 blur-3xl" />
+      </div>
 
-        {/* Background decoration */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-32 -right-32 w-[500px] h-[500px] rounded-full bg-white/5" />
-          <div className="absolute -bottom-40 -left-20 w-[400px] h-[400px] rounded-full bg-white/5" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-white/[0.03]" />
-        </div>
+      {/* Top spacer */}
+      <div />
+
+      {/* Main content */}
+      <div className="w-full max-w-[400px] flex flex-col items-center">
 
         {/* Logo */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-lg">
-            <Image src="/logo.jfif" alt="Arthur Lawrence" width={36} height={36} className="object-contain rounded-lg" />
+        <div className="mb-6 flex flex-col items-center">
+          <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-lg ring-1 ring-black/10 mb-4">
+            <Image src="/logo.jfif" alt="StackUp" width={48} height={48} className="object-contain w-full h-full" />
           </div>
-          <div>
-            <p className="text-white font-bold text-lg leading-tight">StackUp</p>
-            <p className="text-white/60 text-xs">by Arthur Lawrence</p>
-          </div>
-        </div>
-
-        {/* Hero text */}
-        <div className="relative z-10">
-          <h1 className="text-5xl font-extrabold text-white leading-tight mb-6">
-            Your team's<br />work, all in<br />one place.
-          </h1>
-          <p className="text-white/70 text-lg leading-relaxed max-w-sm">
-            Manage projects, track tasks, collaborate across teams — everything your marketing operation needs.
+          <h1 className="text-[22px] font-bold text-gray-900">Welcome back!</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Internal platform · <span className="text-[#e8170b] font-medium">Arthur Lawrence</span>
           </p>
-
-          {/* Feature pills */}
-          <div className="flex flex-wrap gap-2 mt-8">
-            {["Project Management", "Task Tracking", "Team Reports", "Templates", "Workload"].map((f) => (
-              <span key={f} className="px-3 py-1.5 rounded-full bg-white/15 text-white/90 text-xs font-medium backdrop-blur-sm border border-white/20">
-                {f}
-              </span>
-            ))}
-          </div>
         </div>
 
-        {/* Bottom tagline */}
-        <div className="relative z-10">
-          <p className="text-white/40 text-sm">© {new Date().getFullYear()} Arthur Lawrence. All rights reserved.</p>
-        </div>
-      </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="w-full space-y-3 mt-2">
+          {/* Email */}
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="Work email"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:border-gray-800 focus:ring-1 focus:ring-gray-800 transition shadow-sm"
+          />
 
-      {/* ── Right panel ── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-[#fafafa]">
-        <div className="w-full max-w-[400px]">
-
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2.5 mb-10">
-            <div className="w-9 h-9 rounded-xl bg-[#e8170b] flex items-center justify-center shadow">
-              <Image src="/logo.jfif" alt="AL" width={32} height={32} className="object-contain rounded-lg" />
-            </div>
-            <span className="text-xl font-bold text-gray-900">StackUp</span>
-          </div>
-
-          {/* Heading */}
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">Welcome back</h2>
-            <p className="text-gray-500 mt-1.5 text-[15px]">Sign in to your StackUp account</p>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Email address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="you@arthurlawrence.net"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#e8170b]/30 focus:border-[#e8170b] transition shadow-sm"
-              />
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-semibold text-gray-700">Password</label>
-              </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#e8170b]/30 focus:border-[#e8170b] transition shadow-sm"
-              />
-            </div>
-
+          {/* Password */}
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Password"
+              className="w-full px-4 py-3 pr-11 rounded-lg border border-gray-200 bg-white text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-300 transition shadow-sm"
+            />
             <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-[#e8170b] to-[#c91409] hover:from-[#d41409] hover:to-[#b01208] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm transition-all shadow-lg shadow-[#e8170b]/25 mt-1"
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
             >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Signing in...
-                </span>
-              ) : "Sign in"}
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
-          </form>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-xs text-gray-400 font-medium">Quick access</span>
-            <div className="flex-1 h-px bg-gray-200" />
           </div>
 
-          {/* Quick fill */}
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: "Admin", email: "aseem.jibran@arthurlawrence.net", pass: "admin123" },
-              { label: "Team Member", email: "saad.hassan@arthurlawrence.net", pass: "member123" },
-            ].map((demo) => (
-              <button
-                key={demo.label}
-                onClick={() => { setEmail(demo.email); setPassword(demo.pass); }}
-                className="flex items-center justify-center gap-1.5 text-xs py-2.5 px-3 rounded-xl bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-900 border border-gray-200 transition shadow-sm font-medium"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#e8170b]" />
-                {demo.label}
-              </button>
-            ))}
-          </div>
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={loading || !canSubmit}
+            className="w-full py-3 rounded-lg text-sm font-semibold transition-all mt-1 disabled:cursor-not-allowed"
+            style={{
+              background: canSubmit
+                ? "linear-gradient(135deg, #e8170b, #c91409)"
+                : "#c8c8c8",
+              color: "white",
+              boxShadow: canSubmit ? "0 4px 14px rgba(232,23,11,0.35)" : "none",
+            }}
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                Signing in…
+              </span>
+            ) : "Log In"}
+          </button>
+        </form>
 
-          <p className="text-center text-xs text-gray-400 mt-8">
-            Internal platform · Arthur Lawrence
-          </p>
+        {/* Divider */}
+        <div className="flex items-center gap-3 w-full my-5">
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-xs text-gray-400">quick fill</span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
+
+        {/* Quick fill buttons */}
+        <div className="grid grid-cols-2 gap-2 w-full">
+          {[
+            { label: "Admin", email: "aseem.jibran@arthurlawrence.net", pass: "admin123" },
+            { label: "Team Member", email: "saad.hassan@arthurlawrence.net", pass: "member123" },
+          ].map((demo) => (
+            <button
+              key={demo.label}
+              onClick={() => { setEmail(demo.email); setPassword(demo.pass); }}
+              className="py-2.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-900 text-xs font-medium transition shadow-sm"
+            >
+              {demo.label}
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* Bottom */}
+      <p className="text-sm text-gray-400">Need help?</p>
     </div>
   );
 }
