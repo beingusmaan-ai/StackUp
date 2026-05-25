@@ -16,20 +16,23 @@ export async function POST(req: NextRequest) {
     if (!file.type.startsWith("image/")) return NextResponse.json({ error: "File must be an image" }, { status: 422 });
     if (file.size > MAX_BYTES) return NextResponse.json({ error: "Image must be under 2 MB" }, { status: 422 });
 
-    const bytes = await file.arrayBuffer();
-    const base64 = Buffer.from(bytes).toString("base64");
-    const imageUrl = `data:${file.type};base64,${base64}`;
-
-    // resolve real DB user id via email (stale JWT guard)
+    // Resolve real DB user id (stale JWT guard)
     let dbUserId = session.user.id;
     if (session.user.email) {
       const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
       if (me) dbUserId = me.id;
     }
 
+    const bytes = await file.arrayBuffer();
+    const base64 = Buffer.from(bytes).toString("base64");
+    const avatarData = `data:${file.type};base64,${base64}`;
+
+    // Store binary in avatarData; store a short API URL in image (safe for JWT cookie)
+    const imageUrl = `/api/users/${dbUserId}/avatar`;
+
     await db.user.update({
       where: { id: dbUserId },
-      data: { image: imageUrl },
+      data: { avatarData, image: imageUrl },
     });
 
     return NextResponse.json({ imageUrl });
@@ -52,7 +55,7 @@ export async function DELETE() {
 
     await db.user.update({
       where: { id: dbUserId },
-      data: { image: null },
+      data: { avatarData: null, image: null },
     });
 
     return NextResponse.json({ success: true });
