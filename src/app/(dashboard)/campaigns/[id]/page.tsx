@@ -13,6 +13,7 @@ import { StatusBadge, PriorityBadge, CampaignStatusBadge } from "@/components/sh
 import { UserAvatar, AvatarGroup } from "@/components/shared/UserAvatar";
 import { formatDate, cn } from "@/lib/utils";
 import { TaskForm } from "@/components/tasks/TaskForm";
+import { TaskDetail } from "@/components/tasks/TaskDetail";
 import { CampaignForm } from "@/components/campaigns/CampaignForm";
 import { CampaignTemplateForm } from "@/components/campaigns/CampaignTemplateForm";
 import { CampaignHealthScore } from "@/components/campaigns/CampaignHealthScore";
@@ -125,6 +126,7 @@ export default function CampaignDetailPage() {
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [showWrapUp, setShowWrapUp] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const didAutoSelect = useRef(false);
 
@@ -808,7 +810,7 @@ export default function CampaignDetailPage() {
                     </thead>
                     <tbody className="divide-y divide-border">
                       {currentList.tasks.map((task) => (
-                        <tr key={task.id} className="hover:bg-muted/20 transition-colors group">
+                        <tr key={task.id} onClick={() => setSelectedTaskId(task.id)} className="hover:bg-muted/20 transition-colors group cursor-pointer">
                           <td className="px-5 py-3">
                             <p className="font-medium text-sm">{task.title}</p>
                           </td>
@@ -823,7 +825,7 @@ export default function CampaignDetailPage() {
                           {canManage && (
                             <td className="px-4 py-3">
                               <button
-                                onClick={() => deleteTask(task.id)}
+                                onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
                                 disabled={deletingTaskId === task.id}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground"
                               >
@@ -851,13 +853,14 @@ export default function CampaignDetailPage() {
                             {colTasks.map((task) => (
                               <div
                                 key={task.id}
-                                className="bg-card border border-border rounded-xl p-3 hover:shadow-sm transition-shadow group"
+                                onClick={() => setSelectedTaskId(task.id)}
+                                className="bg-card border border-border rounded-xl p-3 hover:shadow-sm transition-shadow group cursor-pointer"
                               >
                                 <div className="flex items-start justify-between gap-2 mb-1.5">
                                   <p className="text-sm font-medium leading-snug">{task.title}</p>
                                   {canManage && (
                                     <button
-                                      onClick={() => deleteTask(task.id)}
+                                      onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
                                       disabled={deletingTaskId === task.id}
                                       className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground flex-shrink-0"
                                     >
@@ -895,6 +898,17 @@ export default function CampaignDetailPage() {
           ) : null}
         </div>
       </div>
+
+      {selectedTaskId && (
+        <TaskDetail
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          onUpdate={() => {
+            queryClient.invalidateQueries({ queryKey: ["list", selectedListId] });
+            queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+          }}
+        />
+      )}
 
       {showTaskForm && (
         <TaskForm
