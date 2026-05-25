@@ -16,18 +16,19 @@ export async function GET(req: NextRequest) {
   const now = new Date();
 
   let userWhere: Record<string, unknown> = { isActive: true };
+  let teamMemberIds: string[] | null = null;
   if (teamId) {
     const dept = await db.department.findUnique({ where: { id: teamId }, select: { id: true } });
     if (dept) {
-      const memberIds = await db.departmentMember.findMany({
+      const memberRows = await db.departmentMember.findMany({
         where: { departmentId: teamId },
         select: { userId: true },
       });
-      if (memberIds.length > 0) {
-        userWhere = { isActive: true, id: { in: memberIds.map((m) => m.userId) } };
+      if (memberRows.length > 0) {
+        teamMemberIds = memberRows.map((m) => m.userId);
+        userWhere = { isActive: true, id: { in: teamMemberIds } };
       }
     }
-    // If dept doesn't exist (stale ID) or has no members, fall through to show all users
   }
 
   const users = await db.user.findMany({
@@ -59,7 +60,11 @@ export async function GET(req: NextRequest) {
     orderBy: { name: "asc" },
   });
 
+  const campaignWhere = teamId
+    ? { OR: [{ departmentId: teamId }, ...(teamMemberIds ? [{ ownerId: { in: teamMemberIds } }] : [])] }
+    : {};
   const campaigns = await db.campaign.findMany({
+    where: campaignWhere,
     select: {
       id: true,
       name: true,
