@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { X, Send, CheckCircle, RotateCcw, ChevronDown, Calendar, Paperclip, FileText, Download, XCircle, Cloud, Trash2, FolderOpen } from "lucide-react";
+import { X, Send, CheckCircle, RotateCcw, ChevronDown, Calendar, Paperclip, FileText, Download, XCircle, Cloud, Trash2, FolderOpen, Pencil } from "lucide-react";
 import { CloudFilePicker } from "@/components/tasks/CloudFilePicker";
 import { HoursEditor } from "@/components/tasks/HoursEditor";
 import { LogTimeModal } from "@/components/tasks/LogTimeModal";
+import { TaskForm } from "@/components/tasks/TaskForm";
 import { StatusBadge, PriorityBadge } from "@/components/shared/StatusBadge";
 import { UserAvatar, AvatarGroup } from "@/components/shared/UserAvatar";
 import { formatDate, formatRelative } from "@/lib/utils";
@@ -30,6 +31,7 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [showLogTime, setShowLogTime] = useState(false);
   const [showCloudPicker, setShowCloudPicker] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["task", taskId],
@@ -206,6 +208,15 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
             <PriorityBadge priority={task.priority} />
           </div>
           <div className="flex items-center gap-1">
+            {canDelete && (
+              <button
+                onClick={() => setShowEditForm(true)}
+                className="w-8 h-8 rounded-lg hover:bg-muted text-muted-foreground flex items-center justify-center transition-colors"
+                title="Edit task"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            )}
             {canDelete && (
               <button
                 onClick={handleDelete}
@@ -585,6 +596,29 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
         taskTitle={task.title}
         estimatedHours={task.estimatedHours}
         onClose={() => setShowLogTime(false)}
+      />
+    )}
+    {showEditForm && (
+      <TaskForm
+        editTask={{
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          taskType: task.taskType,
+          priority: task.priority,
+          status: task.status,
+          dueDate: task.dueDate,
+          startDate: task.startDate,
+          estimatedHours: task.estimatedHours,
+          campaignId: task.campaign?.id ?? null,
+          assignees: task.assignees ?? [],
+        }}
+        onClose={() => setShowEditForm(false)}
+        onSuccess={() => {
+          setShowEditForm(false);
+          queryClient.invalidateQueries({ queryKey: ["task", taskId] });
+          onUpdate();
+        }}
       />
     )}
     </>
