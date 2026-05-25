@@ -61,9 +61,13 @@ export default function TeamPage() {
   const { data: session } = useSession();
   const { activeTeamId, setActiveTeamId } = useUIStore();
 
-  function selectTeam(id: string) {
+  function selectTeam(id: string | null) {
     setActiveTeamId(id);
-    document.cookie = `activeTeamId=${id}; path=/; max-age=31536000; SameSite=Lax`;
+    if (id) {
+      document.cookie = `activeTeamId=${id}; path=/; max-age=31536000; SameSite=Lax`;
+    } else {
+      document.cookie = `activeTeamId=; path=/; max-age=0; SameSite=Lax`;
+    }
   }
   const queryClient = useQueryClient();
 
@@ -147,24 +151,32 @@ export default function TeamPage() {
         )}
       </div>
 
-      {/* Teams overview — global admin only, hidden when a specific team is selected */}
-      {isGlobalAdmin && !activeTeamId && teams.length > 0 && (
+      {/* Teams overview — global admin only, always visible */}
+      {isGlobalAdmin && teams.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-5">
-          {teams.map((team) => (
-            <button
-              key={team.id}
-              onClick={() => selectTeam(team.id)}
-              className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 text-left hover:border-[#e8170b]/40 hover:shadow-sm transition-all"
-            >
-              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: team.color ?? "#6366f1" }} />
-              <div className="min-w-0">
-                <p className="text-[13px] font-semibold text-foreground truncate">{team.name}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {team._count.members} {team._count.members === 1 ? "member" : "members"}
-                </p>
-              </div>
-            </button>
-          ))}
+          {teams.map((team) => {
+            const isActive = activeTeamId === team.id;
+            return (
+              <button
+                key={team.id}
+                onClick={() => isActive ? selectTeam(null) : selectTeam(team.id)}
+                className={cn(
+                  "border rounded-xl px-4 py-3 flex items-center gap-3 text-left transition-all",
+                  isActive
+                    ? "bg-[#e8170b]/5 border-[#e8170b]/40 shadow-sm"
+                    : "bg-card border-border hover:border-[#e8170b]/40 hover:shadow-sm"
+                )}
+              >
+                <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: team.color ?? "#6366f1" }} />
+                <div className="min-w-0">
+                  <p className={cn("text-[13px] font-semibold truncate", isActive ? "text-[#e8170b]" : "text-foreground")}>{team.name}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {team._count.members} {team._count.members === 1 ? "member" : "members"}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
