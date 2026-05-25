@@ -7,13 +7,13 @@ export async function POST() {
   if (!session || session.user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const sent = await sendSlackMessage({
-    text: "✅ Arthur Lawrence Marketing Hub — Slack integration is working!",
+    text: "✅ StackUp — Slack integration is working!",
     blocks: [
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: "✅ *Slack Integration Active*\nYour Arthur Lawrence Marketing Hub is now connected to Slack. You'll receive notifications for task updates, assignments, and daily digests.",
+          text: "✅ *Slack Integration Active*\nYour StackUp workspace is now connected to Slack. You'll receive notifications for task updates, assignments, and daily digests.",
         },
       },
       {

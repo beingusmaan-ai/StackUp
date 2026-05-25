@@ -316,7 +316,7 @@ export function IntegrationsPanel({ isAdmin }: { isAdmin: boolean }) {
                 <ol className="text-[11px] text-amber-700/80 dark:text-amber-400/80 space-y-0.5 list-decimal pl-4">
                   <li>Go to myaccount.google.com → Security</li>
                   <li>Enable 2-Step Verification (required)</li>
-                  <li>Search "App passwords" → create one named "Marketing Hub"</li>
+                  <li>Search "App passwords" → create one named "StackUp"</li>
                   <li>Copy the 16-character code as EMAIL_PASS</li>
                 </ol>
               </div>

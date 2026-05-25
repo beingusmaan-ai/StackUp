@@ -126,7 +126,7 @@ export function Sidebar() {
           {/* Header */}
           <Link href="/dashboard" className="h-[64px] px-3 flex items-center gap-2.5 border-b border-black/[0.07] dark:border-white/[0.06] flex-shrink-0 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors">
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-bold text-gray-800 dark:text-white leading-tight truncate">Arthur Lawrence</p>
+              <p className="text-[13px] font-bold text-gray-800 dark:text-white leading-tight truncate">StackUp</p>
             </div>
           </Link>
 

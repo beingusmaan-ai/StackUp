@@ -57,7 +57,7 @@ export async function notifyStatusChange({
       },
       {
         type: "context",
-        elements: [{ type: "mrkdwn", text: `Arthur Lawrence Marketing Hub · <${process.env.NEXTAUTH_URL ?? ""}/tasks?task=${taskId}|View Task>` }],
+        elements: [{ type: "mrkdwn", text: `StackUp · <${process.env.NEXTAUTH_URL ?? ""}/tasks?task=${taskId}|View Task>` }],
       },
     ],
   });
@@ -83,7 +83,7 @@ export async function notifyAssignment({
       },
       {
         type: "context",
-        elements: [{ type: "mrkdwn", text: `Arthur Lawrence Marketing Hub · <${process.env.NEXTAUTH_URL ?? ""}/tasks?task=${taskId}|View Task>` }],
+        elements: [{ type: "mrkdwn", text: `StackUp · <${process.env.NEXTAUTH_URL ?? ""}/tasks?task=${taskId}|View Task>` }],
       },
     ],
   });
@@ -117,11 +117,11 @@ export async function sendDailyDigest() {
   }).join("\n");
 
   const sent = await sendSlackMessage({
-    text: `Daily Marketing Hub Digest — ${today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`,
+    text: `Daily StackUp Digest — ${today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`,
     blocks: [
       {
         type: "header",
-        text: { type: "plain_text", text: "📊 Daily Marketing Hub Digest" },
+        text: { type: "plain_text", text: "📊 Daily StackUp Digest" },
       },
       {
         type: "section",
@@ -137,7 +137,7 @@ export async function sendDailyDigest() {
       }] : []),
       {
         type: "context",
-        elements: [{ type: "mrkdwn", text: `Arthur Lawrence Marketing Hub · ${today.toLocaleDateString()}` }],
+        elements: [{ type: "mrkdwn", text: `StackUp · ${today.toLocaleDateString()}` }],
       },
     ],
   });

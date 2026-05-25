@@ -18,7 +18,7 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
   if (!isEmailConfigured()) return false;
   try {
     await createTransporter().sendMail({
-      from: `"Arthur Lawrence Marketing Hub" <${process.env.EMAIL_USER}>`,
+      from: `"StackUp" <${process.env.EMAIL_USER}>`,
       to, subject, html,
     });
     return true;
@@ -45,7 +45,7 @@ function layout(body: string): string {
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f4f5;margin:0;padding:24px 16px;">
   <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);">
     <div style="background:#e8170b;padding:20px 28px;">
-      <p style="margin:0;color:#fff;font-size:15px;font-weight:700;">Arthur Lawrence Marketing Hub</p>
+      <p style="margin:0;color:#fff;font-size:15px;font-weight:700;">StackUp</p>
     </div>
     <div style="padding:28px;">${body}</div>
     <div style="padding:14px 28px;background:#f9f9f9;border-top:1px solid #f0f0f0;">

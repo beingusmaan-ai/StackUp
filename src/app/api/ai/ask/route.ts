@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     const messages = [
       {
         role: "system" as const,
-        content: `You are StackUp AI, an intelligent assistant for the Arthur Lawrence Marketing Hub. You help marketing teams manage projects, tasks, campaigns, and workflows. Be concise, practical, and friendly. Format responses with markdown when helpful.`,
+        content: `You are StackUp AI, an intelligent assistant for StackUp. You help teams manage projects, tasks, campaigns, and workflows. Be concise, practical, and friendly. Format responses with markdown when helpful.`,
       },
       ...(history ?? []),
       { role: "user" as const, content: question },
