@@ -59,7 +59,12 @@ interface TeamResponse {
 
 export default function TeamPage() {
   const { data: session } = useSession();
-  const { activeTeamId } = useUIStore();
+  const { activeTeamId, setActiveTeamId } = useUIStore();
+
+  function selectTeam(id: string) {
+    setActiveTeamId(id);
+    document.cookie = `activeTeamId=${id}; path=/; max-age=31536000; SameSite=Lax`;
+  }
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -146,9 +151,10 @@ export default function TeamPage() {
       {isGlobalAdmin && !activeTeamId && teams.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-5">
           {teams.map((team) => (
-            <div
+            <button
               key={team.id}
-              className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3"
+              onClick={() => selectTeam(team.id)}
+              className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 text-left hover:border-[#e8170b]/40 hover:shadow-sm transition-all"
             >
               <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: team.color ?? "#6366f1" }} />
               <div className="min-w-0">
@@ -157,7 +163,7 @@ export default function TeamPage() {
                   {team._count.members} {team._count.members === 1 ? "member" : "members"}
                 </p>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
