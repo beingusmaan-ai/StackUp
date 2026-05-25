@@ -30,7 +30,11 @@ export function TeamSwitcher() {
 
   useEffect(() => {
     if (!session) return;
-    fetch("/api/departments?myTeams=true")
+    const isGlobalAdmin = session.user.role === "ADMIN";
+    // Global admins fetch all departments so they always have a team context;
+    // regular users fetch only their own department memberships.
+    const url = isGlobalAdmin ? "/api/departments" : "/api/departments?myTeams=true";
+    fetch(url)
       .then((r) => r.json())
       .then((d) => {
         const fetched: Team[] = (d.data || []).map((t: Team) => ({
@@ -40,12 +44,10 @@ export function TeamSwitcher() {
         }));
         setTeams(fetched);
         if (fetched.length === 0) return;
-        // If saved team doesn't belong to this user, auto-select their first team
         const validSaved = activeTeamId && fetched.find((t) => t.id === activeTeamId);
         if (!validSaved) {
           persistTeam(fetched[0].id);
         } else {
-          // Ensure cookie is in sync with Zustand (e.g. first load after cookie cleared)
           document.cookie = `activeTeamId=${activeTeamId}; path=/; max-age=31536000; SameSite=Lax`;
         }
       })

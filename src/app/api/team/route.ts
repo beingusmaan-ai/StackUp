@@ -44,6 +44,22 @@ export async function GET(req: NextRequest) {
         memberIdFilter = { id: { in: memberships.map((m) => m.userId) } };
       }
     }
+  } else if (!isGlobalAdmin) {
+    // Non-global-admin with no teamId: scope to all their dept memberships
+    const myDepts = await db.departmentMember.findMany({
+      where: { userId: callerDbId },
+      select: { departmentId: true },
+    });
+    if (myDepts.length > 0) {
+      const deptIds = myDepts.map((d) => d.departmentId);
+      const members = await db.departmentMember.findMany({
+        where: { departmentId: { in: deptIds } },
+        select: { userId: true },
+      });
+      if (members.length > 0) {
+        memberIdFilter = { id: { in: [...new Set(members.map((m) => m.userId))] } };
+      }
+    }
   }
 
   const users = await db.user.findMany({
