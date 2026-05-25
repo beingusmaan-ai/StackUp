@@ -22,7 +22,10 @@ export default async function SettingsPage() {
 
   const user = await db.user.findUnique({
     where: { id: session?.user.id },
-    select: { id: true, name: true, email: true, role: true, marketingRole: true, department: true, createdAt: true, image: true },
+    select: {
+      id: true, name: true, email: true, role: true, marketingRole: true, createdAt: true, image: true,
+      departmentMemberships: { select: { department: { select: { name: true } } } },
+    },
   });
 
   if (!user) return null;
@@ -49,7 +52,11 @@ export default async function SettingsPage() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Department</p>
-            <p className="font-medium">{user.department || "—"}</p>
+            <p className="font-medium">
+              {user.departmentMemberships.length > 0
+                ? user.departmentMemberships.map((m) => m.department.name).join(", ")
+                : "—"}
+            </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Member since</p>
