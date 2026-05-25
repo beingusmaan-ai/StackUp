@@ -1057,6 +1057,152 @@ const DEPT_TEMPLATES: TemplateDef[] = [
     ],
   },
 
+  // ── Sales (Department workflows) ────────────────────────────────────────────
+  {
+    name: "Sales Rep Onboarding",
+    description: "30-day onboarding plan for a new sales hire — from day-one setup to first closed deal",
+    category: "DEPARTMENT",
+    estimatedDays: 30,
+    tags: "onboarding, new hire, sales rep, training",
+    department: "Sales",
+    groups: [
+      {
+        name: "Week 1 — Setup & Orientation",
+        color: "#3b82f6",
+        tasks: [
+          { title: "Set Up CRM Account & Tools Access", assignedRole: "SALES_MANAGER", priority: "URGENT", estimatedHours: 1, dayOffset: 29, checklist: ["CRM login created", "Email configured", "Slack added to channels", "Drive/Notion access granted"] },
+          { title: "Company & Product Overview Session", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 2, dayOffset: 28, checklist: ["Product demo watched", "Value proposition understood", "Pricing tiers reviewed"] },
+          { title: "Shadow 2 Live Sales Calls", assignedRole: "SALES_REP", priority: "HIGH", estimatedHours: 3, dayOffset: 26, checklist: ["Discovery call shadowed", "Demo call shadowed", "Notes taken and reviewed with manager"] },
+        ],
+      },
+      {
+        name: "Week 2 — Process & Playbook",
+        color: "#8b5cf6",
+        tasks: [
+          { title: "Read & Acknowledge Sales Playbook", assignedRole: "SALES_REP", priority: "HIGH", estimatedHours: 3, dayOffset: 22, checklist: ["ICP and personas reviewed", "Objection handling read", "Sequence steps understood"] },
+          { title: "Complete CRM Data Entry Training", assignedRole: "SALES_REP", priority: "HIGH", estimatedHours: 2, dayOffset: 21, checklist: ["Lead stages understood", "Activity logging practiced", "Pipeline view set up"] },
+          { title: "Role-Play Practice: Discovery Call", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 1, dayOffset: 19, checklist: ["Discovery questions practiced", "Feedback given", "Pass/retry recorded"] },
+        ],
+      },
+      {
+        name: "Week 3–4 — Ramping Up",
+        color: "#10b981",
+        tasks: [
+          { title: "First 10 Outbound Prospects Identified", assignedRole: "SALES_REP", priority: "HIGH", estimatedHours: 2, dayOffset: 14, checklist: ["Accounts match ICP", "Contacts enriched in CRM", "Personalisation notes added"] },
+          { title: "First Live Discovery Call (Solo)", assignedRole: "SALES_REP", priority: "HIGH", estimatedHours: 1, dayOffset: 10, checklist: ["Call logged in CRM", "Next step agreed with prospect", "Debrief with manager done"] },
+          { title: "30-Day Onboarding Review with Manager", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 1, dayOffset: 0, checklist: ["KPIs for ramp-up discussed", "Gaps identified", "90-day targets set"] },
+        ],
+      },
+    ],
+  },
+  {
+    name: "Quarterly Business Review (QBR)",
+    description: "End-to-end preparation and delivery of a quarterly sales review with leadership",
+    category: "DEPARTMENT",
+    estimatedDays: 14,
+    tags: "QBR, quarterly review, sales performance, leadership",
+    department: "Sales",
+    groups: [
+      {
+        name: "Data Preparation",
+        color: "#f59e0b",
+        tasks: [
+          { title: "Pull Q Revenue & Pipeline Report from CRM", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 2, dayOffset: 12, checklist: ["Closed-won revenue vs target", "Pipeline value by stage", "Win/loss rate", "Avg deal size"] },
+          { title: "Compile Individual Rep Performance Data", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 2, dayOffset: 11, checklist: ["Quota attainment per rep", "Activity metrics (calls, emails, demos)", "Top performers highlighted"] },
+          { title: "Identify Top 3 Wins & Top 3 Losses", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 1, dayOffset: 10, checklist: ["Win reasons documented", "Loss reasons documented", "Patterns identified"] },
+        ],
+      },
+      {
+        name: "Presentation Build",
+        color: "#6366f1",
+        tasks: [
+          { title: "Build QBR Slide Deck", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 4, dayOffset: 7, checklist: ["Executive summary slide", "Revenue vs target chart", "Pipeline health slide", "Next quarter forecast included"] },
+          { title: "Next Quarter Goals & Forecast", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 2, dayOffset: 5, checklist: ["Revenue target set", "Activity targets per rep", "Key deals to close listed"] },
+          { title: "Internal Dry Run", assignedRole: "SALES_MANAGER", priority: "MEDIUM", estimatedHours: 1, dayOffset: 3, checklist: ["Deck reviewed with team lead", "Timing under 45 min", "Q&A prep done"] },
+        ],
+      },
+      {
+        name: "QBR Delivery",
+        color: "#10b981",
+        tasks: [
+          { title: "Present QBR to Leadership", assignedRole: "SALES_MANAGER", priority: "URGENT", estimatedHours: 1, dayOffset: 1, checklist: ["Deck shared ahead of time", "All attendees confirmed", "Recording set up"] },
+          { title: "Capture Action Items & Distribute Notes", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 1, dayOffset: 0, checklist: ["Action items listed with owners", "Notes shared within 24 hrs", "Decisions documented"] },
+        ],
+      },
+    ],
+  },
+  {
+    name: "Monthly Pipeline Review",
+    description: "Structured monthly health check of the sales pipeline — deals, forecast, and blockers",
+    category: "DEPARTMENT",
+    estimatedDays: 5,
+    tags: "pipeline, monthly review, forecast, CRM",
+    department: "Sales",
+    groups: [
+      {
+        name: "Pipeline Hygiene",
+        color: "#e8170b",
+        tasks: [
+          { title: "Audit CRM for Stale Deals (30+ Days No Activity)", assignedRole: "SALES_REP", priority: "HIGH", estimatedHours: 1, dayOffset: 4, checklist: ["Deals with no activity flagged", "Stage accuracy confirmed", "Closed-lost updated for dead deals"] },
+          { title: "Update Deal Stages & Close Dates", assignedRole: "SALES_REP", priority: "HIGH", estimatedHours: 1, dayOffset: 4, checklist: ["All open deals reviewed", "Close dates realistic", "Next steps logged on each deal"] },
+        ],
+      },
+      {
+        name: "Forecast & Blockers",
+        color: "#3b82f6",
+        tasks: [
+          { title: "Submit Individual Monthly Forecast", assignedRole: "SALES_REP", priority: "HIGH", estimatedHours: 1, dayOffset: 3, checklist: ["Commit, best-case, and pipeline amounts submitted", "Top 3 deals to close listed", "Risks flagged"] },
+          { title: "Identify Deals Needing Manager Support", assignedRole: "SALES_REP", priority: "MEDIUM", estimatedHours: 1, dayOffset: 3, checklist: ["Stalled deals escalated", "Executive sponsor needed?", "Procurement or legal blockers noted"] },
+        ],
+      },
+      {
+        name: "Team Review Meeting",
+        color: "#10b981",
+        tasks: [
+          { title: "Run Monthly Pipeline Review Meeting", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 1, dayOffset: 1, checklist: ["Each rep's top deals reviewed", "Blockers discussed", "Coaching opportunities noted"] },
+          { title: "Share Forecast Summary with Leadership", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 1, dayOffset: 0, checklist: ["Total pipeline value", "Likely-to-close this month", "Risks flagged"] },
+        ],
+      },
+    ],
+  },
+  {
+    name: "Sales Playbook Update",
+    description: "Annual refresh of the sales playbook — ICP, messaging, objections, and sequences",
+    category: "DEPARTMENT",
+    estimatedDays: 21,
+    tags: "playbook, sales process, ICP, enablement",
+    department: "Sales",
+    groups: [
+      {
+        name: "Audit & Research",
+        color: "#8b5cf6",
+        tasks: [
+          { title: "Review Win/Loss Data from Past Year", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 3, dayOffset: 19, checklist: ["Top win reasons listed", "Top loss reasons listed", "Common objections catalogued"] },
+          { title: "Survey Sales Reps for Playbook Gaps", assignedRole: "SALES_MANAGER", priority: "MEDIUM", estimatedHours: 1, dayOffset: 17, checklist: ["Survey sent to all reps", "Responses collected", "Themes summarised"] },
+          { title: "Competitive Landscape Update", assignedRole: "BUSINESS_DEVELOPMENT", priority: "HIGH", estimatedHours: 3, dayOffset: 15, checklist: ["Top 3 competitors reviewed", "Battle cards updated", "Differentiators refreshed"] },
+        ],
+      },
+      {
+        name: "Playbook Rewrite",
+        color: "#f59e0b",
+        tasks: [
+          { title: "Update ICP & Buyer Personas", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 2, dayOffset: 12, checklist: ["Firmographic criteria updated", "Pain points refreshed", "Stakeholder map updated"] },
+          { title: "Refresh Email & Call Sequences", assignedRole: "SALES_REP", priority: "HIGH", estimatedHours: 4, dayOffset: 10, checklist: ["Cold outreach sequence updated", "Follow-up cadence set", "Voicemail scripts updated"] },
+          { title: "Update Objection Handling Responses", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 2, dayOffset: 8, checklist: ["Top 10 objections covered", "Responses signed off by team", "Added to CRM cheat sheet"] },
+        ],
+      },
+      {
+        name: "Review & Rollout",
+        color: "#10b981",
+        tasks: [
+          { title: "Leadership Sign-Off on Updated Playbook", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 1, dayOffset: 4, checklist: ["Changes summarised for review", "Feedback incorporated", "Final version approved"] },
+          { title: "Team Training Session on New Playbook", assignedRole: "SALES_MANAGER", priority: "HIGH", estimatedHours: 2, dayOffset: 2, checklist: ["All reps attended", "Key changes highlighted", "Q&A completed"] },
+          { title: "Publish Playbook to Shared Drive", assignedRole: "SALES_MANAGER", priority: "MEDIUM", estimatedHours: 1, dayOffset: 0, checklist: ["Published in agreed location", "All reps notified", "Old version archived"] },
+        ],
+      },
+    ],
+  },
+
   // ── Tech / Dev ──────────────────────────────────────────────────────────────
   {
     name: "Feature Development Sprint",
