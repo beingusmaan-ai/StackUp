@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { X, Send, CheckCircle, RotateCcw, ChevronDown, Calendar, Paperclip, FileText, Download, XCircle, Cloud, Trash2, FolderOpen, Pencil } from "lucide-react";
+import { X, Send, CheckCircle, RotateCcw, ChevronDown, Calendar, Paperclip, FileText, Download, XCircle, Cloud, Trash2, Pencil } from "lucide-react";
 import { CloudFilePicker } from "@/components/tasks/CloudFilePicker";
 import { HoursEditor } from "@/components/tasks/HoursEditor";
 import { LogTimeModal } from "@/components/tasks/LogTimeModal";
@@ -136,32 +136,6 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
     onError: () => toast.error("Failed to update status"),
   });
 
-  const { data: foldersData } = useQuery({
-    queryKey: ["folders", task?.campaign?.id],
-    queryFn: async () => {
-      const res = await fetch(`/api/campaigns/${task.campaign.id}/folders`);
-      return res.json();
-    },
-    enabled: !!task?.campaign?.id,
-  });
-  const folders: { id: string; name: string; lists: { id: string; name: string }[] }[] = foldersData?.data ?? [];
-
-  async function moveToList(listId: string) {
-    try {
-      const res = await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listId: listId || null }),
-      });
-      if (!res.ok) throw new Error();
-      queryClient.invalidateQueries({ queryKey: ["task", taskId] });
-      queryClient.invalidateQueries({ queryKey: ["folders", task?.campaign?.id] });
-      onUpdate();
-      toast.success(listId ? "Moved to list" : "Removed from list");
-    } catch {
-      toast.error("Failed to move task");
-    }
-  }
 
   if (!task) {
     return (
@@ -311,35 +285,6 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
             </div>
           )}
 
-          {/* Location: folder / list */}
-          {task.campaign && (
-            <div className="mt-4">
-              <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
-                <FolderOpen className="w-3 h-3" /> Location
-              </p>
-              {folders.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">No folders in this project yet</p>
-              ) : (
-                <div className="relative">
-                  <select
-                    value={task.list?.id ?? ""}
-                    onChange={(e) => moveToList(e.target.value)}
-                    className="w-full appearance-none pl-3 pr-8 py-1.5 rounded-lg border border-border bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-[#e8170b] cursor-pointer"
-                  >
-                    <option value="">— No list —</option>
-                    {folders.map((folder) => (
-                      <optgroup key={folder.id} label={folder.name}>
-                        {folder.lists.map((list) => (
-                          <option key={list.id} value={list.id}>{list.name}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Approval actions */}
           {isAssignee && task.status === "WAITING_APPROVAL" && !pendingApproval && (
