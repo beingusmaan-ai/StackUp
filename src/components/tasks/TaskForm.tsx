@@ -114,6 +114,7 @@ export function TaskForm({ onClose, onSuccess, editTask, defaultRecurring, defau
   useEffect(() => {
     const params = new URLSearchParams();
     if (activeWorkspaceId) params.set("workspaceId", activeWorkspaceId);
+    if (activeTeamId) params.set("departmentId", activeTeamId);
     const campaignUrl = `/api/campaigns?${params}`;
     const usersUrl = activeTeamId ? `/api/users?departmentId=${activeTeamId}` : "/api/users";
     Promise.all([
