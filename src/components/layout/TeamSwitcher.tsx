@@ -30,19 +30,15 @@ export function TeamSwitcher() {
 
   useEffect(() => {
     if (!session) return;
-    fetch("/api/departments?myTeams=true")
+    const url = session.user.role === "ADMIN" ? "/api/departments" : "/api/departments?myTeams=true";
+    fetch(url)
       .then((r) => r.json())
-      .then(async (d) => {
-        let fetched: Team[] = (d.data || []).map((t: Team) => ({
+      .then((d) => {
+        const fetched: Team[] = (d.data || []).map((t: Team) => ({
           id: t.id,
           name: t.name,
           color: t.color,
         }));
-        // Global admins with no explicit dept memberships fall back to all departments
-        if (fetched.length === 0 && session.user.role === "ADMIN") {
-          const all = await fetch("/api/departments").then((r) => r.json());
-          fetched = (all.data || []).map((t: Team) => ({ id: t.id, name: t.name, color: t.color }));
-        }
         setTeams(fetched);
         if (fetched.length === 0) return;
         const validSaved = activeTeamId && fetched.find((t) => t.id === activeTeamId);
