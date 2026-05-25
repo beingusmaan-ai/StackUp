@@ -146,11 +146,6 @@ export function Sidebar() {
             </div>
           </Link>
 
-          {/* Team switcher */}
-          <div className="px-2 flex-shrink-0">
-            <p className="text-[9px] font-semibold text-gray-400 dark:text-white/25 uppercase tracking-widest px-1 mb-1">Team</p>
-            <TeamSwitcher />
-          </div>
 
 
           {/* Create button */}
