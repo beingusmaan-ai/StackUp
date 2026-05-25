@@ -611,6 +611,7 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
           startDate: task.startDate,
           estimatedHours: task.estimatedHours,
           campaignId: task.campaign?.id ?? null,
+          listId: task.list?.id ?? null,
           assignees: task.assignees ?? [],
         }}
         onClose={() => setShowEditForm(false)}

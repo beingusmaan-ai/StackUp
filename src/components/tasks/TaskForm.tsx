@@ -76,6 +76,7 @@ interface TaskFormProps {
     startDate?: Date | string | null;
     estimatedHours?: number | null;
     campaignId?: string | null;
+    listId?: string | null;
     assignees: { user: { id: string; name: string } }[];
   } | null;
 }
@@ -104,7 +105,7 @@ export function TaskForm({ onClose, onSuccess, editTask, defaultRecurring, defau
     startDate: editTask?.startDate ? new Date(editTask.startDate).toISOString().split("T")[0] : "",
     estimatedHours: editTask?.estimatedHours?.toString() || prefill?.estimatedHours || "",
     campaignId: editTask?.campaignId || prefill?.campaignId || defaultCampaignId || "",
-    listId: defaultListId || "",
+    listId: editTask?.listId || defaultListId || "",
     assigneeIds: editTask?.assignees.map((a) => a.user.id) || prefill?.assigneeIds || [] as string[],
     requestingDepartmentId: editTask ? "" : (activeTeamId ?? ""),
     assignedDepartmentId: "",
