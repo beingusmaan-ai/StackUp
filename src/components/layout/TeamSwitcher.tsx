@@ -63,7 +63,7 @@ export function TeamSwitcher() {
 
   const activeTeam = teams.find((t) => t.id === activeTeamId) ?? null;
 
-  if (teams.length === 0) return null;
+  if (teams.length <= 1) return null;
 
   return (
     <div ref={ref} className="relative px-3 pb-2">
