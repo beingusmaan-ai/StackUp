@@ -484,14 +484,41 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
                   <p className="text-sm font-medium">
                     Attachments{task.attachments?.length > 0 ? ` (${task.attachments.length})` : ""}
                   </p>
-                  <button
-                    onClick={() => setShowCloudPicker((v) => !v)}
-                    className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                    title="Attach from Google Drive or OneDrive"
-                  >
-                    <Cloud className="w-3.5 h-3.5" />
-                    Cloud
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="Upload from computer">
+                      <Paperclip className="w-3.5 h-3.5" />
+                      Upload
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={async (e) => {
+                          const files = Array.from(e.target.files ?? []);
+                          if (!files.length) return;
+                          const fd = new FormData();
+                          files.forEach((f) => fd.append("files", f));
+                          try {
+                            const res = await fetch(`/api/tasks/${taskId}/attachments`, { method: "POST", body: fd });
+                            if (!res.ok) throw new Error();
+                            queryClient.invalidateQueries({ queryKey: ["task", taskId] });
+                            onUpdate();
+                            toast.success("Files attached");
+                          } catch {
+                            toast.error("Upload failed");
+                          }
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                    <button
+                      onClick={() => setShowCloudPicker((v) => !v)}
+                      className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                      title="Attach from Google Drive or OneDrive"
+                    >
+                      <Cloud className="w-3.5 h-3.5" />
+                      Cloud
+                    </button>
+                  </div>
                 </div>
 
                 {showCloudPicker && (
