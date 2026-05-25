@@ -40,9 +40,7 @@ export async function GET(req: NextRequest) {
         where: { departmentId: teamId },
         select: { userId: true },
       });
-      if (memberships.length > 0) {
-        memberIdFilter = { id: { in: memberships.map((m) => m.userId) } };
-      }
+      memberIdFilter = { id: { in: memberships.map((m) => m.userId) } };
     }
   } else if (!isGlobalAdmin) {
     // Non-global-admin with no teamId: scope to all their dept memberships
@@ -56,9 +54,7 @@ export async function GET(req: NextRequest) {
         where: { departmentId: { in: deptIds } },
         select: { userId: true },
       });
-      if (members.length > 0) {
-        memberIdFilter = { id: { in: [...new Set(members.map((m) => m.userId))] } };
-      }
+      memberIdFilter = { id: { in: [...new Set(members.map((m) => m.userId))] } };
     }
   }
 
