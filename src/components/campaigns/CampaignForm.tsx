@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { X, Sparkles, ChevronDown } from "lucide-react";
+import { X, Sparkles, ChevronDown, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/ui-store";
+import { ImportCampaignsModal } from "./ImportCampaignsModal";
 
 interface User { id: string; name: string }
 interface Department { id: string; name: string; color: string }
@@ -33,6 +34,7 @@ export function CampaignForm({ onClose, onSuccess, editCampaign, defaultDepartme
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
   const [briefLoading, setBriefLoading] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   const [form, setForm] = useState({
     name: editCampaign?.name || "",
@@ -125,11 +127,26 @@ export function CampaignForm({ onClose, onSuccess, editCampaign, defaultDepartme
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-background border border-border rounded-2xl w-full max-w-xl shadow-2xl overflow-y-auto max-h-[90vh]">
+        {showImport && (
+          <ImportCampaignsModal onClose={() => setShowImport(false)} onSuccess={() => { setShowImport(false); onSuccess(); }} />
+        )}
         <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-background">
           <h2 className="text-lg font-semibold">{editCampaign ? "Edit Project" : "New Project"}</h2>
+          <div className="flex items-center gap-2">
+            {!editCampaign && (
+              <button
+                type="button"
+                onClick={() => setShowImport(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Import CSV/Excel
+              </button>
+            )}
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center">
             <X className="w-4 h-4" />
           </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">

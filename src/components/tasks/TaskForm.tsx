@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { X, Repeat, Sparkles, Cloud, XCircle, ChevronDown } from "lucide-react";
+import { X, Repeat, Sparkles, Cloud, XCircle, ChevronDown, Upload } from "lucide-react";
 import { RecurringBuilder, RecurringConfig, getDefaultRecurringConfig } from "./RecurringBuilder";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/ui-store";
+import { ImportTasksModal } from "./ImportTasksModal";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global { interface Window { gapi: any; google: any; OneDrive: any; } }
@@ -95,6 +96,7 @@ export function TaskForm({ onClose, onSuccess, editTask, defaultRecurring, defau
   const [recurringConfig, setRecurringConfig] = useState<RecurringConfig>(getDefaultRecurringConfig);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [pickingCloud, setPickingCloud] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [form, setForm] = useState({
     title: editTask?.title || prefill?.title || "",
     description: editTask?.description || "",
@@ -356,10 +358,25 @@ export function TaskForm({ onClose, onSuccess, editTask, defaultRecurring, defau
       <div className="bg-background border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-background">
           <h2 className="text-lg font-semibold">{editTask ? "Edit Task" : "Create Task"}</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {!editTask && (
+              <button
+                type="button"
+                onClick={() => setShowImport(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Import CSV/Excel
+              </button>
+            )}
+            <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
+        {showImport && (
+          <ImportTasksModal onClose={() => setShowImport(false)} onSuccess={() => { setShowImport(false); onSuccess(); }} />
+        )}
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div>
