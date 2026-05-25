@@ -3,6 +3,12 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
+// Never put base64 data URLs into the JWT — they balloon the cookie past Vercel's 8 KB header limit.
+function safeImage(image: string | null | undefined): string | null {
+  if (!image || image.startsWith("data:")) return null;
+  return image;
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
   session: { strategy: "jwt" },
@@ -14,11 +20,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.email = user.email ?? "";
         token.role = (user as { role: string }).role;
         token.marketingRole = (user as { marketingRole?: string }).marketingRole;
-        token.image = (user as { image?: string | null }).image ?? null;
+        token.image = safeImage((user as { image?: string | null }).image);
       }
       // Called when client-side update({ image }) is triggered
       if (trigger === "update" && "image" in (session ?? {})) {
-        token.image = (session as { image?: string | null }).image ?? null;
+        token.image = safeImage((session as { image?: string | null }).image);
       }
       return token;
     },
