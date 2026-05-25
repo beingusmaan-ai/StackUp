@@ -42,6 +42,10 @@ export default async function SettingsPage() {
             <p className="font-medium">{new Date(user.createdAt).toLocaleDateString()}</p>
           </div>
           <div>
+            <p className="text-xs text-muted-foreground mb-1">Job Title</p>
+            <p className="font-medium">{user.marketingRole?.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) || "—"}</p>
+          </div>
+          <div>
             <p className="text-xs text-muted-foreground mb-1">Department</p>
             <p className="font-medium">
               {user.departmentMemberships.length > 0
@@ -51,11 +55,7 @@ export default async function SettingsPage() {
           </div>
         </div>
 
-        <ProfileForm
-          userId={user.id}
-          initialName={user.name}
-          initialMarketingRole={user.marketingRole}
-        />
+        <ProfileForm userId={user.id} initialName={user.name} />
       </div>
 
       <div className="bg-card border border-border rounded-2xl p-6">
