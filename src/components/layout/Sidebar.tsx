@@ -7,13 +7,15 @@ import { cn, getInitials } from "@/lib/utils";
 import {
   LayoutDashboard, Megaphone, CalendarDays,
   Users, BarChart3, Bell, Settings, LogOut,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Plus,
   Clock, BarChart2, ChevronDown, Layers, TrendingUp, AlertTriangle, CheckSquare,
 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TeamSwitcher } from "./TeamSwitcher";
 import { SpacesTree } from "./SpacesTree";
+import { TaskForm } from "@/components/tasks/TaskForm";
+import { CampaignForm } from "@/components/campaigns/CampaignForm";
 
 const LOGO_B64 = "data:image/jpeg;base64,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";
 
@@ -65,9 +67,23 @@ export function Sidebar() {
   const { data: session } = useSession();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const [reportsOpen, setReportsOpen] = useState(false);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [showCampaignForm, setShowCampaignForm] = useState(false);
+  const createMenuRef = useRef<HTMLDivElement>(null);
 
   const onReportsPath = pathname === "/reports" || pathname.startsWith("/reports/");
   useEffect(() => { if (onReportsPath) setReportsOpen(true); }, [onReportsPath]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (createMenuRef.current && !createMenuRef.current.contains(e.target as Node)) {
+        setCreateMenuOpen(false);
+      }
+    }
+    if (createMenuOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [createMenuOpen]);
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen flex">
@@ -136,6 +152,37 @@ export function Sidebar() {
             <TeamSwitcher />
           </div>
 
+
+          {/* Create button */}
+          <div className="px-2 pb-1 flex-shrink-0" ref={createMenuRef}>
+            <div className="relative">
+              <button
+                onClick={() => setCreateMenuOpen((v) => !v)}
+                className="flex items-center gap-1.5 w-full px-3 py-1.5 rounded-lg bg-[#e8170b] hover:bg-[#c71209] text-white text-[12px] font-semibold transition-colors shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>Create</span>
+              </button>
+              {createMenuOpen && (
+                <div className="absolute left-0 top-full mt-1 w-40 bg-white dark:bg-[#1e293b] border border-black/10 dark:border-white/10 rounded-xl shadow-lg z-50 overflow-hidden py-1">
+                  <button
+                    onClick={() => { setCreateMenuOpen(false); setShowTaskForm(true); }}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-[12px] text-gray-700 dark:text-white/80 hover:bg-gray-50 dark:hover:bg-white/[0.06] transition-colors"
+                  >
+                    <CheckSquare className="w-3.5 h-3.5 text-[#e8170b] flex-shrink-0" />
+                    Task
+                  </button>
+                  <button
+                    onClick={() => { setCreateMenuOpen(false); setShowCampaignForm(true); }}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-[12px] text-gray-700 dark:text-white/80 hover:bg-gray-50 dark:hover:bg-white/[0.06] transition-colors"
+                  >
+                    <Megaphone className="w-3.5 h-3.5 text-[#e8170b] flex-shrink-0" />
+                    Project
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto px-2 py-1.5 space-y-4 scrollbar-none">
@@ -236,6 +283,20 @@ export function Sidebar() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Create forms */}
+      {showTaskForm && (
+        <TaskForm
+          onClose={() => setShowTaskForm(false)}
+          onSuccess={() => setShowTaskForm(false)}
+        />
+      )}
+      {showCampaignForm && (
+        <CampaignForm
+          onClose={() => setShowCampaignForm(false)}
+          onSuccess={() => setShowCampaignForm(false)}
+        />
       )}
 
       {/* Collapse toggle */}
