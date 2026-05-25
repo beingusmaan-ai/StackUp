@@ -37,7 +37,9 @@ export default async function DashboardPage() {
   const taskWhere = teamMemberIds
     ? { OR: [{ assignedDepartmentId: validTeamId }, { assignees: { some: { userId: { in: teamMemberIds } } } }] }
     : {};
-  const campaignWhere = validTeamId ? { departmentId: validTeamId } : {};
+  const campaignWhere = (validTeamId && teamMemberIds)
+    ? { OR: [{ departmentId: validTeamId }, { ownerId: { in: teamMemberIds } }] }
+    : validTeamId ? { departmentId: validTeamId } : {};
 
   const [
     totalTasks,
