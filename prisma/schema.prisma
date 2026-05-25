@@ -36,6 +36,7 @@ model User {
   campaignTemplates     CampaignTemplate[]   @relation("TemplateCreator")
   taskTemplates         TaskTemplate[]       @relation("TaskTemplateCreator")
   templateVersions      TemplateVersion[]    @relation("TemplateVersionCreator")
+  workspaceMemberships  WorkspaceMember[]
 
   @@map("users")
 }
@@ -111,6 +112,35 @@ model DepartmentMember {
   @@map("department_members")
 }
 
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  color       String   @default("#e8170b")
+  logoUrl     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  campaigns Campaign[]
+  members   WorkspaceMember[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  workspaceId String
+  userId      String
+  role        String   @default("MEMBER")
+  joinedAt    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@map("workspace_members")
+}
+
 model CampaignTemplate {
   id            String   @id @default(cuid())
   name          String
@@ -138,16 +168,19 @@ model Campaign {
   goals        String?
   ownerId      String
   departmentId String?
+  workspaceId  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   owner              User                @relation("CampaignOwner", fields: [ownerId], references: [id])
   department         Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  workspace          Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   tasks              Task[]
   folders            ProjectFolder[]
   recurringTemplates RecurringTemplate[]
 
   @@index([departmentId])
+  @@index([workspaceId])
   @@map("campaigns")
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { getCallerDeptAdminIds } from "@/lib/dept-auth";
 
 const updateSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -54,9 +55,16 @@ export async function PATCH(
 ) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role === "TEAM_MEMBER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { campaignId } = await params;
+  const deptAdminIds = await getCallerDeptAdminIds(session);
+  if (deptAdminIds !== null) {
+    if (deptAdminIds.length === 0) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const camp = await db.campaign.findUnique({ where: { id: campaignId }, select: { departmentId: true } });
+    if (!camp?.departmentId || !deptAdminIds.includes(camp.departmentId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
   const body = await req.json();
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });

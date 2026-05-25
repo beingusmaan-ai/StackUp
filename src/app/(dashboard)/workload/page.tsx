@@ -194,7 +194,7 @@ export default function WorkloadPage() {
                 onChange={(e) => setDepartmentFilter(e.target.value)}
                 className="appearance-none pl-2.5 pr-7 py-1.5 bg-card border border-border rounded-lg text-[12px] text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#e8170b] cursor-pointer"
               >
-                <option value="">All Departments</option>
+                <option value="">All Functions</option>
                 {departments.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />

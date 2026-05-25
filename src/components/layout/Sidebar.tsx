@@ -1,26 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { cn, getInitials } from "@/lib/utils";
 import {
-  LayoutDashboard, CheckSquare, Megaphone, CalendarDays,
+  LayoutDashboard, Megaphone, CalendarDays,
   Users, BarChart3, Bell, Settings, LogOut,
-  ChevronLeft, ChevronRight, Search,
-  Clock, BarChart2, ChevronDown, Layers, TrendingUp, AlertTriangle,
+  ChevronLeft, ChevronRight,
+  Clock, BarChart2, ChevronDown, Layers, TrendingUp, AlertTriangle, CheckSquare,
 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { TeamSwitcher } from "./TeamSwitcher";
+import { SpacesTree } from "./SpacesTree";
 
 const NAV_GROUPS = [
   {
     label: "Main Menu",
     items: [
       { href: "/dashboard",     label: "Dashboard",     icon: LayoutDashboard },
-      { href: "/campaigns",     label: "Projects",      icon: Megaphone },
+      { href: "/campaigns",     label: "Projects",      icon: Megaphone, hasProjectsSub: true },
       { href: "/tasks",         label: "Tasks",         icon: CheckSquare },
       { href: "/calendar",      label: "Calendar",      icon: CalendarDays },
       { href: "/workload",      label: "Workload",      icon: BarChart2 },
@@ -46,6 +47,7 @@ const NAV_GROUPS = [
 
 const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
+
 const REPORTS_SUB = [
   { href: "/reports",              label: "Executive",    icon: LayoutDashboard },
   { href: "/reports/team",         label: "Team",         icon: Users },
@@ -57,6 +59,8 @@ const REPORTS_SUB = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeListId = searchParams.get("list");
   const { data: session } = useSession();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const [reportsOpen, setReportsOpen] = useState(false);
@@ -118,26 +122,18 @@ export function Sidebar() {
         <div className="w-[196px] bg-[#f2f2f2] dark:bg-[#0f172a] flex flex-col h-full border-r border-black/[0.07] dark:border-white/[0.06]">
 
           {/* Header */}
-          <div className="h-[64px] px-3 flex items-center gap-2.5 border-b border-black/[0.07] dark:border-white/[0.06] flex-shrink-0">
+          <Link href="/dashboard" className="h-[64px] px-3 flex items-center gap-2.5 border-b border-black/[0.07] dark:border-white/[0.06] flex-shrink-0 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors">
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-bold text-gray-800 dark:text-white leading-tight truncate">Arthur Lawrence</p>
-              <p className="text-[10px] text-gray-400 dark:text-white/35 truncate">Marketing Hub</p>
             </div>
-          </div>
+          </Link>
 
           {/* Team switcher */}
-          <div className="pt-2.5 px-2 flex-shrink-0">
+          <div className="px-2 flex-shrink-0">
+            <p className="text-[9px] font-semibold text-gray-400 dark:text-white/25 uppercase tracking-widest px-1 mb-1">Team</p>
             <TeamSwitcher />
           </div>
 
-          {/* Search */}
-          <div className="px-2 pt-2 pb-1 flex-shrink-0">
-            <div className="flex items-center gap-2 bg-white dark:bg-white/[0.05] border border-black/[0.08] dark:border-white/[0.07] rounded-lg px-2.5 py-1.5 cursor-pointer hover:border-[#e8170b]/40 transition-colors group">
-              <Search className="w-3 h-3 text-gray-400 dark:text-white/30 flex-shrink-0" />
-              <span className="text-[11px] text-gray-400 dark:text-white/30 flex-1">Search</span>
-              <kbd className="text-[9px] text-gray-300 dark:text-white/20 border border-black/10 dark:border-white/10 rounded px-1 font-mono">⌘K</kbd>
-            </div>
-          </div>
 
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto px-2 py-1.5 space-y-4 scrollbar-none">
@@ -149,57 +145,64 @@ export function Sidebar() {
                 <div className="space-y-0.5">
                   {group.items.map((item) => {
                     const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                    const isSpaces  = "hasProjectsSub" in item;
                     const isReports = item.href === "/reports" && "hasReportsSub" in item;
                     return (
                       <div key={item.href}>
-                        <div className="flex items-center gap-0.5">
-                          <Link
-                            href={item.href}
-                            className={cn(
-                              "flex items-center gap-2 flex-1 px-2 py-1.5 rounded-lg text-[12px] font-medium transition-all",
-                              isActive
-                                ? "bg-white dark:bg-white/[0.07] text-[#e8170b] dark:text-[#e8170b] shadow-sm"
-                                : "text-gray-500 dark:text-white/45 hover:bg-white/70 dark:hover:bg-white/[0.05] hover:text-gray-800 dark:hover:text-white/80"
-                            )}
-                          >
-                            <item.icon className={cn(
-                              "w-3.5 h-3.5 flex-shrink-0",
-                              isActive ? "text-[#e8170b]" : "text-gray-400 dark:text-white/30"
-                            )} />
-                            <span className="truncate">{item.label}</span>
-                          </Link>
-                          {isReports && (
-                            <button
-                              onClick={() => setReportsOpen((v) => !v)}
-                              className="w-5 h-5 flex items-center justify-center rounded hover:bg-black/[0.06] dark:hover:bg-white/[0.08] text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
-                            >
-                              <ChevronDown className={cn("w-3 h-3 transition-transform", reportsOpen && "rotate-180")} />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Reports sub-tree */}
-                        {isReports && reportsOpen && (
-                          <div className="ml-2 mt-0.5 space-y-0.5 border-l-2 border-[#e8170b]/20 pl-2.5">
-                            {REPORTS_SUB.map((sub) => {
-                              const subActive = pathname === sub.href;
-                              return (
-                                <Link
-                                  key={sub.href}
-                                  href={sub.href}
-                                  className={cn(
-                                    "flex items-center gap-1.5 py-1 px-1.5 rounded-lg text-[11px] transition-all",
-                                    subActive
-                                      ? "text-[#e8170b] font-semibold"
-                                      : "text-gray-400 dark:text-white/30 hover:text-gray-700 dark:hover:text-white/65"
-                                  )}
+                        {isSpaces ? (
+                          <SpacesTree activeListId={activeListId} />
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-0.5">
+                              <Link
+                                href={item.href}
+                                className={cn(
+                                  "flex items-center gap-2 flex-1 px-2 py-1.5 rounded-lg text-[12px] font-medium transition-all",
+                                  isActive
+                                    ? "bg-white dark:bg-white/[0.07] text-[#e8170b] dark:text-[#e8170b] shadow-sm"
+                                    : "text-gray-500 dark:text-white/45 hover:bg-white/70 dark:hover:bg-white/[0.05] hover:text-gray-800 dark:hover:text-white/80"
+                                )}
+                              >
+                                <item.icon className={cn(
+                                  "w-3.5 h-3.5 flex-shrink-0",
+                                  isActive ? "text-[#e8170b]" : "text-gray-400 dark:text-white/30"
+                                )} />
+                                <span className="truncate">{item.label}</span>
+                              </Link>
+                              {isReports && (
+                                <button
+                                  onClick={() => setReportsOpen((v) => !v)}
+                                  className="w-5 h-5 flex items-center justify-center rounded hover:bg-black/[0.06] dark:hover:bg-white/[0.08] text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
                                 >
-                                  <sub.icon className={cn("w-3 h-3 flex-shrink-0", subActive ? "text-[#e8170b]" : "text-gray-300 dark:text-white/20")} />
-                                  <span className="truncate">{sub.label}</span>
-                                </Link>
-                              );
-                            })}
-                          </div>
+                                  <ChevronDown className={cn("w-3 h-3 transition-transform", reportsOpen && "rotate-180")} />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Reports sub-tree */}
+                            {isReports && reportsOpen && (
+                              <div className="ml-2 mt-0.5 space-y-0.5 border-l-2 border-[#e8170b]/20 pl-2.5">
+                                {REPORTS_SUB.map((sub) => {
+                                  const subActive = pathname === sub.href;
+                                  return (
+                                    <Link
+                                      key={sub.href}
+                                      href={sub.href}
+                                      className={cn(
+                                        "flex items-center gap-1.5 py-1 px-1.5 rounded-lg text-[11px] transition-all",
+                                        subActive
+                                          ? "text-[#e8170b] font-semibold"
+                                          : "text-gray-400 dark:text-white/30 hover:text-gray-700 dark:hover:text-white/65"
+                                      )}
+                                    >
+                                      <sub.icon className={cn("w-3 h-3 flex-shrink-0", subActive ? "text-[#e8170b]" : "text-gray-300 dark:text-white/20")} />
+                                      <span className="truncate">{sub.label}</span>
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     );

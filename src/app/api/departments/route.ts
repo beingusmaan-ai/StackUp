@@ -15,9 +15,18 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const myTeams = searchParams.get("myTeams") === "true";
+  const myAdmin = searchParams.get("myAdmin") === "true";
 
-  const where = myTeams
-    ? { members: { some: { userId: session.user.id } } }
+  let callerDbId = session.user.id;
+  if ((myTeams || myAdmin) && session.user.email) {
+    const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
+    if (me) callerDbId = me.id;
+  }
+
+  const where = myAdmin
+    ? { members: { some: { userId: callerDbId, role: "ADMIN" } } }
+    : myTeams
+    ? { members: { some: { userId: callerDbId } } }
     : undefined;
 
   const departments = await db.department.findMany({
@@ -39,7 +48,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role === "TEAM_MEMBER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
   const parsed = deptSchema.safeParse(body);

@@ -5,6 +5,7 @@ import { X, Sparkles, ChevronDown, ChevronRight, Plus, Trash2, UserPlus, Check }
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { useUIStore } from "@/store/ui-store";
 
 interface BreakdownTask {
   title: string;
@@ -133,9 +134,12 @@ export function SmartBreakdownModal({ campaigns, onClose, onTasksCreated }: Smar
   const [creating, setCreating] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
 
+  const { activeTeamId } = useUIStore();
+
   useEffect(() => {
-    fetch("/api/users").then((r) => r.json()).then((j) => setUsers(j.data || []));
-  }, []);
+    const usersUrl = activeTeamId ? `/api/users?departmentId=${activeTeamId}` : "/api/users";
+    fetch(usersUrl).then((r) => r.json()).then((j) => setUsers(j.data || []));
+  }, [activeTeamId]);
 
   const totalTasks = groups.reduce((s, g) => s + g.tasks.length, 0);
   const totalHours = groups.reduce((s, g) => s + g.tasks.reduce((ts, t) => ts + (t.estimatedHours || 0), 0), 0);

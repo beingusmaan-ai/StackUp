@@ -92,6 +92,12 @@ export async function POST(
 
   if (!template) return NextResponse.json({ error: "Template not found" }, { status: 404 });
 
+  let currentDbUserId = session.user.id;
+  if (session.user.email) {
+    const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
+    if (me) currentDbUserId = me.id;
+  }
+
   const deadlineDate = new Date(deadline);
 
   // Resolve campaign
@@ -103,7 +109,7 @@ export async function POST(
         status: "DRAFT",
         startDate: new Date(),
         endDate: deadlineDate,
-        ownerId: session.user.id,
+        ownerId: currentDbUserId,
         departmentId: campaignDepartmentId ?? null,
       },
     });
@@ -201,7 +207,7 @@ export async function POST(
           dueDate,
           estimatedHours: tmplTask.estimatedHours ?? null,
           campaignId,
-          createdById: session.user.id,
+          createdById: currentDbUserId,
           assignees: assigneeId
             ? { create: [{ user: { connect: { id: assigneeId } } }] }
             : undefined,

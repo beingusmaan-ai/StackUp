@@ -315,19 +315,19 @@ export default function TimesheetsPage() {
   const isAdmin = session?.user.role !== "TEAM_MEMBER";
   const month = currentDate.getMonth() + 1;
   const year = currentDate.getFullYear();
-  const userId = selectedUserId || session?.user.id || "";
-
-  useEffect(() => {
-    if (session?.user.id && !selectedUserId) setSelectedUserId(session.user.id);
-  }, [session?.user.id, selectedUserId]);
+  // selectedUserId is only set when admin explicitly picks a user from the dropdown.
+  // For non-admins (and admin viewing their own) the API resolves the user from the session email.
+  const userId = selectedUserId;
 
   const { data, isLoading } = useQuery({
     queryKey: ["timesheets", userId, month, year],
     queryFn: async () => {
-      const res = await fetch(`/api/timesheets?userId=${userId}&month=${month}&year=${year}`);
+      const params = new URLSearchParams({ month: String(month), year: String(year) });
+      if (userId) params.set("userId", userId);
+      const res = await fetch(`/api/timesheets?${params}`);
       return res.json() as Promise<{ data: TimeEntry[]; activityByDay: Record<string, Suggestion[]> }>;
     },
-    enabled: !!userId,
+    enabled: !!session,
   });
 
   const { data: usersData } = useQuery({
@@ -368,7 +368,7 @@ export default function TimesheetsPage() {
   const loggedDays = new Set(entries.map((e) => e.date.split("T")[0])).size;
   const avgHours = loggedDays > 0 ? (totalHours / loggedDays).toFixed(1) : "0";
 
-  const selectedUserName = users.find((u) => u.id === userId)?.name || session?.user.name || "";
+  const selectedUserName = (userId ? users.find((u) => u.id === userId)?.name : null) ?? session?.user.name ?? "";
 
   // Mutations
   const createEntry = useMutation({
@@ -377,7 +377,7 @@ export default function TimesheetsPage() {
       const res = await fetch("/api/timesheets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, taskId: payload.taskId || null, date: toDateKey(selectedDay), hours: payload.hours, note: payload.note || null }),
+        body: JSON.stringify({ ...(userId ? { userId } : {}), taskId: payload.taskId || null, date: toDateKey(selectedDay), hours: payload.hours, note: payload.note || null }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -417,7 +417,7 @@ export default function TimesheetsPage() {
     const daysInMonth = new Date(year, month, 0).getDate();
     const to = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
     const params = new URLSearchParams({ from, to });
-    if (userId) params.set("userId", userId);
+    if (userId) params.set("userId", userId); // omit for non-admin — API resolves from session email
     const a = document.createElement("a");
     a.href = `/api/timesheets/export?${params}`;
     a.download = "";

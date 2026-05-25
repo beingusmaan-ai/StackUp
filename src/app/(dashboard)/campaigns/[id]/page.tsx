@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Target, Calendar, TrendingUp, Plus,
-  BookTemplate, Edit2, List, LayoutGrid, Trash2, FileText,
+  BookTemplate, Edit2, List, LayoutGrid, GanttChart, Trash2, FileText,
   ChevronRight, ChevronDown, Folder as FolderIcon, Hash, Check, X as XIcon, Pencil,
 } from "lucide-react";
 import Link from "next/link";
@@ -17,6 +17,7 @@ import { CampaignForm } from "@/components/campaigns/CampaignForm";
 import { CampaignTemplateForm } from "@/components/campaigns/CampaignTemplateForm";
 import { CampaignHealthScore } from "@/components/campaigns/CampaignHealthScore";
 import { WrapUpReportModal } from "@/components/campaigns/WrapUpReportModal";
+import { GanttView } from "@/components/campaigns/GanttView";
 import { useUIStore } from "@/store/ui-store";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -32,6 +33,7 @@ interface ListTask {
   title: string;
   status: string;
   priority: string;
+  startDate?: string | null;
   dueDate?: string | null;
   assignees: { user: TaskUser }[];
   _count: { subTasks: number; comments: number };
@@ -90,21 +92,26 @@ interface Campaign {
 }
 
 const KANBAN_COLUMNS = [
-  { key: "TODO",              label: "To Do",            color: "bg-slate-100 dark:bg-slate-800" },
-  { key: "IN_PROGRESS",      label: "In Progress",      color: "bg-yellow-50 dark:bg-yellow-950/30" },
-  { key: "WAITING_APPROVAL", label: "Waiting Approval", color: "bg-blue-50 dark:bg-blue-950/30" },
-  { key: "COMPLETED",        label: "Completed",        color: "bg-green-50 dark:bg-green-950/30" },
-  { key: "BLOCKED",          label: "Blocked",          color: "bg-red-50 dark:bg-red-950/30" },
+  { key: "TODO",              label: "To Do",             color: "bg-slate-100 dark:bg-slate-800" },
+  { key: "ASSIGNED",         label: "Assigned",           color: "bg-purple-50 dark:bg-purple-950/30" },
+  { key: "IN_PROGRESS",      label: "In Progress",        color: "bg-yellow-50 dark:bg-yellow-950/30" },
+  { key: "WAITING_APPROVAL", label: "Waiting Approval",   color: "bg-blue-50 dark:bg-blue-950/30" },
+  { key: "REVISION_REQUIRED",label: "Revision Required",  color: "bg-orange-50 dark:bg-orange-950/30" },
+  { key: "COMPLETED",        label: "Completed",          color: "bg-green-50 dark:bg-green-950/30" },
+  { key: "BLOCKED",          label: "Blocked",            color: "bg-red-50 dark:bg-red-950/30" },
 ];
 
 export default function CampaignDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
   const queryClient = useQueryClient();
   const { data: session } = useSession();
   const { campaignView, setCampaignView } = useUIStore();
 
-  const [selectedListId, setSelectedListId] = useState<string | null>(null);
+  const [selectedListId, setSelectedListId] = useState<string | null>(
+    searchParams.get("list")
+  );
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -120,7 +127,16 @@ export default function CampaignDetailPage() {
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
   const didAutoSelect = useRef(false);
-  const canManage = session?.user?.role !== "TEAM_MEMBER";
+
+  const { data: adminDeptsData } = useQuery({
+    queryKey: ["myAdminDepts"],
+    queryFn: async () => {
+      const res = await fetch("/api/departments?myAdmin=true");
+      return res.json();
+    },
+    enabled: session?.user?.role !== "ADMIN",
+    staleTime: 60_000,
+  });
 
   const { data: campaignData, isLoading: campaignLoading } = useQuery({
     queryKey: ["campaign", id],
@@ -131,6 +147,10 @@ export default function CampaignDetailPage() {
     },
   });
   const campaign: Campaign | undefined = campaignData?.data;
+  const adminDeptIds: string[] = adminDeptsData?.data?.map((d: { id: string }) => d.id) ?? [];
+  const canManage =
+    session?.user?.role === "ADMIN" ||
+    (!!campaign?.department?.id && adminDeptIds.includes(campaign.department.id));
 
   const { data: foldersData, isLoading: foldersLoading } = useQuery({
     queryKey: ["folders", id],
@@ -149,7 +169,7 @@ export default function CampaignDetailPage() {
         folders.forEach((f) => next.add(f.id));
         return next;
       });
-      if (!didAutoSelect.current) {
+      if (!didAutoSelect.current && !searchParams.get("list")) {
         const first = folders[0]?.lists?.[0];
         if (first) {
           setSelectedListId(first.id);
@@ -319,11 +339,13 @@ export default function CampaignDetailPage() {
   }
 
   const statusCounts = {
-    TODO:             campaign.tasks.filter((t) => t.status === "TODO").length,
-    IN_PROGRESS:      campaign.tasks.filter((t) => t.status === "IN_PROGRESS").length,
-    WAITING_APPROVAL: campaign.tasks.filter((t) => t.status === "WAITING_APPROVAL").length,
-    COMPLETED:        campaign.completedTasks,
-    BLOCKED:          campaign.tasks.filter((t) => t.status === "BLOCKED").length,
+    TODO:              campaign.tasks.filter((t) => t.status === "TODO").length,
+    ASSIGNED:          campaign.tasks.filter((t) => t.status === "ASSIGNED").length,
+    IN_PROGRESS:       campaign.tasks.filter((t) => t.status === "IN_PROGRESS").length,
+    WAITING_APPROVAL:  campaign.tasks.filter((t) => t.status === "WAITING_APPROVAL").length,
+    REVISION_REQUIRED: campaign.tasks.filter((t) => t.status === "REVISION_REQUIRED").length,
+    COMPLETED:         campaign.completedTasks,
+    BLOCKED:           campaign.tasks.filter((t) => t.status === "BLOCKED").length,
   };
 
   const templateTasks = campaign.tasks.map((t) => ({
@@ -458,13 +480,15 @@ export default function CampaignDetailPage() {
           <CampaignHealthScore campaign={campaign} />
         </div>
 
-        <div className="grid grid-cols-5 gap-2 mt-4">
+        <div className="grid grid-cols-7 gap-2 mt-4">
           {[
-            { label: "To Do",    count: statusCounts.TODO,             color: "text-slate-600 bg-slate-50 dark:bg-slate-900" },
-            { label: "In Prog.", count: statusCounts.IN_PROGRESS,      color: "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30" },
-            { label: "Approval", count: statusCounts.WAITING_APPROVAL, color: "text-blue-600 bg-blue-50 dark:bg-blue-950/30" },
-            { label: "Done",     count: statusCounts.COMPLETED,        color: "text-green-600 bg-green-50 dark:bg-green-950/30" },
-            { label: "Blocked",  count: statusCounts.BLOCKED,          color: "text-red-600 bg-red-50 dark:bg-red-950/30" },
+            { label: "To Do",    count: statusCounts.TODO,              color: "text-slate-600 bg-slate-50 dark:bg-slate-900" },
+            { label: "Assigned", count: statusCounts.ASSIGNED,          color: "text-purple-600 bg-purple-50 dark:bg-purple-950/30" },
+            { label: "In Prog.", count: statusCounts.IN_PROGRESS,       color: "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30" },
+            { label: "Approval", count: statusCounts.WAITING_APPROVAL,  color: "text-blue-600 bg-blue-50 dark:bg-blue-950/30" },
+            { label: "Revision", count: statusCounts.REVISION_REQUIRED, color: "text-orange-600 bg-orange-50 dark:bg-orange-950/30" },
+            { label: "Done",     count: statusCounts.COMPLETED,         color: "text-green-600 bg-green-50 dark:bg-green-950/30" },
+            { label: "Blocked",  count: statusCounts.BLOCKED,           color: "text-red-600 bg-red-50 dark:bg-red-950/30" },
           ].map((s) => (
             <div key={s.label} className={cn("rounded-xl p-2.5 text-center", s.color)}>
               <p className="text-lg font-bold">{s.count}</p>
@@ -482,7 +506,7 @@ export default function CampaignDetailPage() {
         {/* Sidebar */}
         <div className="w-56 border-r border-border flex flex-col flex-shrink-0">
           <div className="px-3 py-2.5 border-b border-border">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Workspace</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Project</p>
           </div>
 
           <div className="flex-1 overflow-y-auto py-1.5 space-y-0.5">
@@ -729,6 +753,17 @@ export default function CampaignDetailPage() {
                     >
                       <LayoutGrid className="w-3.5 h-3.5" /> Kanban
                     </button>
+                    <button
+                      onClick={() => setCampaignView("gantt")}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                        campaignView === "gantt"
+                          ? "bg-background shadow-sm text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <GanttChart className="w-3.5 h-3.5" /> Gantt
+                    </button>
                   </div>
                   <button
                     onClick={() => setShowTaskForm(true)}
@@ -752,6 +787,12 @@ export default function CampaignDetailPage() {
                     <Plus className="w-3.5 h-3.5" /> Add Task
                   </button>
                 </div>
+              ) : campaignView === "gantt" ? (
+                <GanttView
+                  tasks={currentList.tasks}
+                  campaignStart={campaign.startDate}
+                  campaignEnd={campaign.endDate}
+                />
               ) : campaignView === "list" ? (
                 <div className="overflow-auto flex-1">
                   <table className="w-full">

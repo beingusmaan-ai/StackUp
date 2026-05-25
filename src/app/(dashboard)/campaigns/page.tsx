@@ -29,16 +29,16 @@ interface Campaign {
 
 export default function CampaignsPage() {
   const [showForm, setShowForm] = useState(false);
-  const { activeTeamId } = useUIStore();
+  const { activeTeamId, activeWorkspaceId } = useUIStore();
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["campaigns", activeTeamId],
+    queryKey: ["campaigns", activeWorkspaceId, activeTeamId],
     queryFn: async () => {
-      const url = activeTeamId
-        ? `/api/campaigns?departmentId=${activeTeamId}`
-        : "/api/campaigns";
-      const res = await fetch(url);
+      const params = new URLSearchParams();
+      if (activeWorkspaceId) params.set("workspaceId", activeWorkspaceId);
+      if (activeTeamId) params.set("departmentId", activeTeamId);
+      const res = await fetch(`/api/campaigns?${params}`);
       return res.json();
     },
   });
@@ -49,7 +49,7 @@ export default function CampaignsPage() {
     <div>
       <PageHeader
         title="Projects"
-        subtitle={`${campaigns.length} campaign${campaigns.length !== 1 ? "s" : ""}`}
+        subtitle={`${campaigns.length} project${campaigns.length !== 1 ? "s" : ""}`}
         actions={
           <button
             onClick={() => setShowForm(true)}

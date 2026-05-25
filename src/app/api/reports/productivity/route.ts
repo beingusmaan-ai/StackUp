@@ -9,7 +9,13 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const range = searchParams.get("range") ?? "week"; // "today" | "week" | "month"
   const userId = searchParams.get("userId");
-  const departmentId = searchParams.get("departmentId");
+  const rawDeptId = searchParams.get("departmentId");
+
+  let departmentId: string | null = null;
+  if (rawDeptId) {
+    const dept = await db.department.findUnique({ where: { id: rawDeptId }, select: { id: true } });
+    if (dept) departmentId = dept.id;
+  }
 
   const now = new Date();
   const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);

@@ -6,12 +6,14 @@ interface UIStore {
   toggleSidebar: () => void;
   taskView: "list" | "kanban" | "calendar";
   setTaskView: (view: "list" | "kanban" | "calendar") => void;
-  campaignView: "list" | "kanban";
-  setCampaignView: (view: "list" | "kanban") => void;
+  campaignView: "list" | "kanban" | "gantt";
+  setCampaignView: (view: "list" | "kanban" | "gantt") => void;
   expandedDepartments: Record<string, boolean>;
   toggleDepartment: (id: string) => void;
   activeTeamId: string | null;
   setActiveTeamId: (id: string | null) => void;
+  activeWorkspaceId: string | null;
+  setActiveWorkspaceId: (id: string | null) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -30,6 +32,8 @@ export const useUIStore = create<UIStore>()(
         })),
       activeTeamId: null,
       setActiveTeamId: (id) => set({ activeTeamId: id }),
+      activeWorkspaceId: null,
+      setActiveWorkspaceId: (id) => set({ activeWorkspaceId: id }),
     }),
     { name: "ui-store" }
   )

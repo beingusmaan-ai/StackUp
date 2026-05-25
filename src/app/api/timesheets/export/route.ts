@@ -28,9 +28,15 @@ export async function GET(req: NextRequest) {
 
   const isAdmin = session.user.role !== "TEAM_MEMBER";
 
-  // Members can only export their own data
-  const targetUserId = isAdmin ? (requestedUserId || null) : session.user.id;
-  if (!isAdmin && requestedUserId && requestedUserId !== session.user.id) {
+  // session.user.id may be stale — resolve real DB ID from email
+  let currentDbUserId: string = session.user.id;
+  if (session.user.email) {
+    const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
+    if (me) currentDbUserId = me.id;
+  }
+
+  const targetUserId = isAdmin ? (requestedUserId || null) : currentDbUserId;
+  if (!isAdmin && requestedUserId && requestedUserId !== currentDbUserId) {
     return new Response("Forbidden", { status: 403 });
   }
 

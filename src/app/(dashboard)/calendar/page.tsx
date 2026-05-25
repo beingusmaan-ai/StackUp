@@ -1,49 +1,36 @@
-import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { getActiveTeamId } from "@/lib/teamContext";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { useUIStore } from "@/store/ui-store";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { CalendarView } from "@/components/tasks/CalendarView";
 
-export const metadata = { title: "Calendar" };
+export default function CalendarPage() {
+  const { activeTeamId } = useUIStore();
 
-export default async function CalendarPage() {
-  await auth();
-  const activeTeamId = await getActiveTeamId();
-
-  let teamFilter = {};
-  if (activeTeamId) {
-    const memberships = await db.departmentMember.findMany({
-      where: { departmentId: activeTeamId },
-      select: { userId: true },
-    });
-    const memberIds = memberships.map((m) => m.userId);
-    teamFilter = {
-      OR: [
-        { assignedDepartmentId: activeTeamId },
-        { assignees: { some: { userId: { in: memberIds } } } },
-      ],
-    };
-  }
-
-  const tasks = await db.task.findMany({
-    where: { ...teamFilter, dueDate: { not: null }, status: { not: "COMPLETED" } },
-    select: {
-      id: true,
-      title: true,
-      status: true,
-      priority: true,
-      dueDate: true,
-      startDate: true,
-      assignees: { include: { user: { select: { id: true, name: true } } } },
-      campaign: { select: { name: true } },
+  const { data, isLoading } = useQuery({
+    queryKey: ["calendar", activeTeamId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (activeTeamId) params.set("teamId", activeTeamId);
+      const res = await fetch(`/api/calendar?${params}`);
+      if (!res.ok) throw new Error("Failed to load calendar");
+      return res.json();
     },
-    orderBy: { dueDate: "asc" },
   });
+
+  const tasks = data?.data ?? [];
 
   return (
     <div>
       <PageHeader title="Calendar" subtitle="Task timeline view" />
-      <CalendarView tasks={tasks} />
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="w-8 h-8 border-2 border-[#e8170b] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <CalendarView tasks={tasks} />
+      )}
     </div>
   );
 }

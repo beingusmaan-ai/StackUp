@@ -86,6 +86,12 @@ export async function PATCH(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (session.user.role === "TEAM_MEMBER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  let currentDbUserId = session.user.id;
+  if (session.user.email) {
+    const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
+    if (me) currentDbUserId = me.id;
+  }
+
   const { templateId } = await params;
   const body = await req.json();
   const parsed = updateSchema.safeParse(body);
@@ -150,7 +156,7 @@ export async function PATCH(
       version: (latestVersion?.version ?? 0) + 1,
       snapshot: JSON.stringify(body),
       note: "Updated",
-      createdById: session.user.id,
+      createdById: currentDbUserId,
     },
   });
 

@@ -41,6 +41,19 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
 
   const task = data?.data;
 
+  const { data: adminDeptsData } = useQuery({
+    queryKey: ["myAdminDepts"],
+    queryFn: async () => {
+      const res = await fetch("/api/departments?myAdmin=true");
+      return res.json();
+    },
+    enabled: session?.user?.role !== "ADMIN",
+    staleTime: 60_000,
+  });
+  const adminDeptIds: string[] = adminDeptsData?.data?.map((d: { id: string }) => d.id) ?? [];
+  const isGlobalAdmin = session?.user?.role === "ADMIN";
+  const isDeptAdmin = !isGlobalAdmin && !!task?.campaign?.departmentId && adminDeptIds.includes(task.campaign.departmentId);
+
   const commentMutation = useMutation({
     mutationFn: async (content: string) => {
       const res = await fetch(`/api/tasks/${taskId}/comments`, {
@@ -161,8 +174,8 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
   const pendingApproval = task.approvalRequests?.[0]?.status === "PENDING" ? task.approvalRequests[0] : null;
   const canApprove = task.createdBy?.id === session?.user.id;
   const isAssignee = task.assignees?.some((a: { user: { id: string } }) => a.user.id === session?.user.id);
-  const canChangeStatus = isAssignee || session?.user.role !== "TEAM_MEMBER";
-  const canDelete = session?.user.role === "ADMIN" || session?.user.role === "TEAM_LEAD";
+  const canChangeStatus = isAssignee || isGlobalAdmin || isDeptAdmin;
+  const canDelete = isGlobalAdmin || isDeptAdmin || session?.user?.role === "TEAM_LEAD";
 
   async function handleDelete() {
     if (!confirm("Delete this task? This cannot be undone.")) return;
@@ -231,7 +244,7 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
                   disabled={statusMutation.isPending}
                   className="appearance-none pl-3 pr-8 py-1.5 rounded-lg border border-border bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-[#e8170b] cursor-pointer disabled:opacity-50"
                 >
-                  {(canApprove || session?.user.role !== "TEAM_MEMBER" ? ALL_STATUSES : ASSIGNEE_STATUSES).map((s) => (
+                  {(canApprove || isGlobalAdmin || isDeptAdmin ? ALL_STATUSES : ASSIGNEE_STATUSES).map((s) => (
                     <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
                   ))}
                 </select>

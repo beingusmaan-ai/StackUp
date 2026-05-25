@@ -51,7 +51,8 @@ export async function GET(req: NextRequest) {
   if (category && category !== "ALL") where.category = category;
   if (search) where.name = { contains: search };
   if (departmentId) {
-    where.departmentId = departmentId;
+    const dept = await db.department.findUnique({ where: { id: departmentId }, select: { id: true } });
+    if (dept) where.departmentId = departmentId;
   }
 
   const templates = await db.taskTemplate.findMany({
@@ -86,6 +87,12 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (session.user.role === "TEAM_MEMBER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  let currentDbUserId = session.user.id;
+  if (session.user.email) {
+    const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
+    if (me) currentDbUserId = me.id;
+  }
+
   const body = await req.json();
   const parsed = createTemplateSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
@@ -95,7 +102,7 @@ export async function POST(req: NextRequest) {
   const template = await db.taskTemplate.create({
     data: {
       ...meta,
-      createdById: session.user.id,
+      createdById: currentDbUserId,
       groups: {
         create: groups.map((g, gi) => ({
           name: g.name,
@@ -137,7 +144,7 @@ export async function POST(req: NextRequest) {
       version: 1,
       snapshot,
       note: "Initial version",
-      createdById: session.user.id,
+      createdById: currentDbUserId,
     },
   });
 

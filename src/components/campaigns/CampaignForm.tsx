@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { X, Sparkles, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUIStore } from "@/store/ui-store";
 
 interface User { id: string; name: string }
 interface Department { id: string; name: string; color: string }
@@ -27,6 +28,7 @@ interface CampaignFormProps {
 }
 
 export function CampaignForm({ onClose, onSuccess, editCampaign, defaultDepartmentId }: CampaignFormProps) {
+  const { activeWorkspaceId } = useUIStore();
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,15 +46,18 @@ export function CampaignForm({ onClose, onSuccess, editCampaign, defaultDepartme
     departmentId: editCampaign?.departmentId || defaultDepartmentId || "",
   });
 
+  const { activeTeamId } = useUIStore();
+
   useEffect(() => {
+    const usersUrl = activeTeamId ? `/api/users?departmentId=${activeTeamId}` : "/api/users";
     Promise.all([
-      fetch("/api/users").then((r) => r.json()),
+      fetch(usersUrl).then((r) => r.json()),
       fetch("/api/departments?myTeams=true").then((r) => r.json()),
     ]).then(([u, d]) => {
       setUsers(u.data || []);
       setDepartments(d.data || []);
     });
-  }, []);
+  }, [activeTeamId]);
 
   async function generateBrief() {
     if (!form.name.trim()) { toast.error("Enter a project name first"); return; }
@@ -97,6 +102,7 @@ export function CampaignForm({ onClose, onSuccess, editCampaign, defaultDepartme
         budget: form.budget ? parseFloat(form.budget) : null,
         ownerId: form.ownerId || undefined,
         departmentId: form.departmentId || null,
+        workspaceId: editCampaign ? undefined : (activeWorkspaceId ?? null),
       };
       const url = editCampaign ? `/api/campaigns/${editCampaign.id}` : "/api/campaigns";
       const method = editCampaign ? "PATCH" : "POST";
@@ -105,12 +111,12 @@ export function CampaignForm({ onClose, onSuccess, editCampaign, defaultDepartme
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error();
       const json = await res.json();
+      if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "Failed to save project");
       toast.success(editCampaign ? "Project updated" : "Project created");
       onSuccess(json.data?.id);
-    } catch {
-      toast.error("Failed to save project");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save project");
     } finally {
       setLoading(false);
     }

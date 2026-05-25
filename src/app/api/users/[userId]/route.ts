@@ -57,15 +57,58 @@ export async function PATCH(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { userId } = await params;
 
-  const canEdit = session.user.role === "ADMIN" || session.user.id === userId;
+  // Resolve caller's real DB ID and determine if this is a self-edit
+  let callerDbId = session.user.id;
+  let isSelf = session.user.id === userId;
+
+  if (session.user.email) {
+    const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
+    if (me) callerDbId = me.id;
+    if (!isSelf) {
+      const target = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
+      isSelf = target?.email === session.user.email;
+    }
+  }
+
+  const isGlobalAdmin = session.user.role === "ADMIN";
+  let isDeptAdminOfUser = false;
+
+  if (!isGlobalAdmin && !isSelf) {
+    const callerAdminRows = await db.departmentMember.findMany({
+      where: { userId: callerDbId, role: "ADMIN" },
+      select: { departmentId: true },
+    });
+    const callerAdminDeptIds = callerAdminRows.map((r) => r.departmentId);
+    if (callerAdminDeptIds.length > 0) {
+      const overlap = await db.departmentMember.findFirst({
+        where: { userId, departmentId: { in: callerAdminDeptIds } },
+      });
+      isDeptAdminOfUser = !!overlap;
+    }
+  }
+
+  const canEdit = isGlobalAdmin || isSelf || isDeptAdminOfUser;
   if (!canEdit) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
 
-  if (parsed.data.role && session.user.role !== "ADMIN") {
+  // Non-admins cannot change global role
+  if (parsed.data.role && !isGlobalAdmin) {
     return NextResponse.json({ error: "Only admins can change roles" }, { status: 403 });
+  }
+
+  // Nobody can demote themselves — prevents accidental global admin lockout
+  if (isSelf && parsed.data.role && parsed.data.role !== session.user.role) {
+    return NextResponse.json({ error: "You cannot change your own role" }, { status: 403 });
+  }
+
+  // Dept admins editing someone else can only change name and marketingRole
+  if (isDeptAdminOfUser) {
+    if (parsed.data.isActive !== undefined || parsed.data.departmentIds !== undefined) {
+      return NextResponse.json({ error: "Department admins can only update name and job title" }, { status: 403 });
+    }
   }
 
   const { departmentIds, ...userData } = parsed.data;
@@ -76,8 +119,8 @@ export async function PATCH(
     select: { id: true, name: true, email: true, role: true, marketingRole: true, isActive: true },
   });
 
-  // Sync department memberships if provided
-  if (departmentIds !== undefined) {
+  // Only global admins can sync department memberships
+  if (isGlobalAdmin && departmentIds !== undefined) {
     await db.departmentMember.deleteMany({ where: { userId } });
     if (departmentIds.length > 0) {
       await db.departmentMember.createMany({

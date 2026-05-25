@@ -1,10 +1,11 @@
 "use client";
 
 import {
-  Bell, Sun, Moon, Search, ChevronRight, Plus,
+  Bell, Sun, Moon, Search, ChevronRight, Sparkles,
   LayoutDashboard, CheckSquare, Megaphone, CalendarDays,
   Users, BarChart3, Clock, Settings, BarChart2, Layers,
 } from "lucide-react";
+import { AskAIPanel } from "@/components/ai/AskAIPanel";
 import { useTheme } from "next-themes";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -35,12 +36,15 @@ const PAGE_META: Record<string, PageMeta> = {
 export function Topbar() {
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
-  const { sidebarCollapsed, activeTeamId } = useUIStore();
+  const { sidebarCollapsed, activeTeamId, activeWorkspaceId } = useUIStore();
   const pathname = usePathname();
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
   const [activeTeamName, setActiveTeamName] = useState<string | null>(null);
+  const [activeWorkspaceName, setActiveWorkspaceName] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiInitial, setAiInitial] = useState("");
 
   useEffect(() => {
     if (!activeTeamId) { setActiveTeamName(null); return; }
@@ -52,6 +56,17 @@ export function Topbar() {
       })
       .catch(() => {});
   }, [activeTeamId]);
+
+  useEffect(() => {
+    if (!activeWorkspaceId) { setActiveWorkspaceName(null); return; }
+    fetch("/api/workspaces")
+      .then((r) => r.json())
+      .then((d) => {
+        const ws = (d.data || []).find((w: { id: string; name: string }) => w.id === activeWorkspaceId);
+        setActiveWorkspaceName(ws?.name ?? null);
+      })
+      .catch(() => {});
+  }, [activeWorkspaceId]);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -83,6 +98,7 @@ export function Topbar() {
     : null;
 
   return (
+    <>
     <header className={cn(
       "fixed top-0 right-0 z-30 h-[64px] flex items-center gap-3 px-5 transition-all duration-200",
       "bg-background/95 backdrop-blur-sm border-b border-border",
@@ -92,7 +108,7 @@ export function Topbar() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[12px] text-muted-foreground font-medium hidden sm:block">Arthur Lawrence</span>
+          <span className="text-[12px] text-muted-foreground font-medium hidden sm:block">{activeWorkspaceName ?? "Arthur Lawrence"}</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground/40 hidden sm:block" />
           {activeTeamName && (
             <>
@@ -128,16 +144,17 @@ export function Topbar() {
         <kbd className="text-[9px] text-muted-foreground/60 border border-border rounded px-1 py-0.5 font-mono hidden lg:block flex-shrink-0">⌘K</kbd>
       </form>
 
+      {/* Ask AI bar */}
+      <button
+        onClick={() => { setAiInitial(""); setAiOpen(true); }}
+        className="flex items-center gap-2 bg-[#e8170b] hover:bg-[#c91409] rounded-lg px-3 py-1.5 transition-all flex-shrink-0 shadow-sm shadow-[#e8170b]/20"
+      >
+        <Sparkles className="w-3.5 h-3.5 text-white flex-shrink-0" />
+        <span className="text-[12px] text-white font-medium hidden sm:block">Ask AI</span>
+      </button>
+
       {/* Actions */}
       <div className="flex items-center gap-1">
-        {/* New button */}
-        <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-[#e8170b] hover:bg-[#c91409] text-white text-[12px] font-semibold rounded-lg transition-colors shadow-sm shadow-[#e8170b]/20">
-          <Plus className="w-3.5 h-3.5" />
-          New
-        </button>
-
-        {/* Divider */}
-        <div className="hidden sm:block w-px h-5 bg-border mx-1" />
 
         {/* Theme toggle */}
         <button
@@ -183,5 +200,8 @@ export function Topbar() {
         )}
       </div>
     </header>
+
+      <AskAIPanel open={aiOpen} onClose={() => setAiOpen(false)} initialQuestion={aiInitial} />
+    </>
   );
 }

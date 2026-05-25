@@ -33,6 +33,21 @@ export async function GET(req: NextRequest) {
   const tab = searchParams.get("tab"); // "incoming" | "outgoing"
   const teamId = searchParams.get("teamId"); // active team context
 
+  // Resolve caller's real DB user ID
+  const isGlobalAdmin = session.user.role === "ADMIN";
+  let callerDbId = session.user.id;
+  if (session.user.email) {
+    const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
+    if (me) callerDbId = me.id;
+  }
+
+  // Resolve caller's department memberships (used for scoping)
+  const callerMemberships = await db.departmentMember.findMany({
+    where: { userId: callerDbId },
+    select: { departmentId: true },
+  });
+  const callerDeptIds = callerMemberships.map((m) => m.departmentId);
+
   const where: Record<string, unknown> = { parentTaskId: null };
 
   if (status) where.status = status;
@@ -41,43 +56,51 @@ export async function GET(req: NextRequest) {
   if (assigneeId) where.assignees = { some: { userId: assigneeId } };
   if (search) where.title = { contains: search };
 
-  // Scope to a specific team's tasks
+  // Scope to a specific team's tasks — non-admins must be a member of that team
   if (teamId && tab !== "incoming" && tab !== "outgoing") {
-    const teamMemberIds = await db.departmentMember.findMany({
-      where: { departmentId: teamId },
-      select: { userId: true },
-    });
-    const memberIds = teamMemberIds.map((m) => m.userId);
-    where.OR = [
-      { assignedDepartmentId: teamId },
-      { requestingDepartmentId: teamId },
-      { assignees: { some: { userId: { in: memberIds } } } },
-      { createdById: { in: memberIds } },
-    ];
+    const callerIsInTeam = isGlobalAdmin || callerDeptIds.includes(teamId);
+    if (callerIsInTeam) {
+      const teamMemberIds = await db.departmentMember.findMany({
+        where: { departmentId: teamId },
+        select: { userId: true },
+      });
+      const memberIds = teamMemberIds.map((m) => m.userId);
+      where.OR = [
+        { assignedDepartmentId: teamId },
+        { requestingDepartmentId: teamId },
+        { assignees: { some: { userId: { in: memberIds } } } },
+        { createdById: { in: memberIds } },
+      ];
+    } else {
+      // User is not a member of the requested team — return empty
+      return NextResponse.json({ data: [] });
+    }
   }
 
   if (tab === "incoming" || tab === "outgoing") {
-    const memberships = await db.departmentMember.findMany({
-      where: { userId: session.user.id },
-      select: { departmentId: true },
-    });
-    const myDeptIds = memberships.map((m) => m.departmentId);
-
-    if (myDeptIds.length > 0) {
+    if (callerDeptIds.length > 0) {
       if (tab === "incoming") {
-        where.assignedDepartmentId = { in: myDeptIds };
-        where.requestingDepartmentId = { notIn: myDeptIds };
+        where.assignedDepartmentId = { in: callerDeptIds };
+        where.requestingDepartmentId = { notIn: callerDeptIds };
       } else {
-        where.requestingDepartmentId = { in: myDeptIds };
-        where.NOT = { assignedDepartmentId: { in: myDeptIds } };
+        where.requestingDepartmentId = { in: callerDeptIds };
+        where.NOT = { assignedDepartmentId: { in: callerDeptIds } };
         where.assignedDepartmentId = { not: null };
       }
     } else {
-      // User has no department — return empty for these tabs
       return NextResponse.json({ data: [] });
     }
-  } else if (session.user.role === "TEAM_MEMBER") {
-    where.assignees = { some: { userId: session.user.id } };
+  } else if (!isGlobalAdmin && !teamId) {
+    // Non-admin with no team filter: scope to tasks in their departments or assigned to them
+    if (callerDeptIds.length > 0) {
+      where.OR = [
+        { assignedDepartmentId: { in: callerDeptIds } },
+        { requestingDepartmentId: { in: callerDeptIds } },
+        { assignees: { some: { userId: callerDbId } } },
+      ];
+    } else {
+      where.assignees = { some: { userId: callerDbId } };
+    }
   }
 
   const tasks = await db.task.findMany({
@@ -124,23 +147,42 @@ export async function POST(req: NextRequest) {
 
   const { assigneeIds, startDate, dueDate, requestingDepartmentId, assignedDepartmentId, ...rest } = parsed.data;
 
+  // Resolve createdById — fall back to email lookup if JWT id is stale
+  let createdById = session.user.id;
+  const creatorCheck = await db.user.findUnique({ where: { id: session.user.id }, select: { id: true } });
+  if (!creatorCheck && session.user.email) {
+    const byEmail = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
+    if (byEmail) createdById = byEmail.id;
+  }
+
+  // Validate department IDs exist before using them
+  const resolvedReqDeptId = requestingDepartmentId
+    ? (await db.department.findUnique({ where: { id: requestingDepartmentId }, select: { id: true } }))?.id ?? null
+    : null;
+  const resolvedAssignedDeptId = assignedDepartmentId
+    ? (await db.department.findUnique({ where: { id: assignedDepartmentId }, select: { id: true } }))?.id ?? null
+    : null;
+
+  // Validate assignee IDs exist
+  const validAssigneeIds: string[] = [];
+  for (const uid of assigneeIds) {
+    const exists = await db.user.findUnique({ where: { id: uid }, select: { id: true } });
+    if (exists) validAssigneeIds.push(uid);
+  }
+
   // If task is assigned to a team but no specific person chosen,
   // auto-assign to that department's LEAD/ADMIN members.
-  let finalAssigneeIds = [...assigneeIds];
-  if (assignedDepartmentId && finalAssigneeIds.length === 0) {
+  let finalAssigneeIds = [...validAssigneeIds];
+  if (resolvedAssignedDeptId && finalAssigneeIds.length === 0) {
     const leads = await db.departmentMember.findMany({
-      where: {
-        departmentId: assignedDepartmentId,
-        role: { in: ["LEAD", "ADMIN"] },
-      },
+      where: { departmentId: resolvedAssignedDeptId, role: { in: ["LEAD", "ADMIN"] } },
       select: { userId: true },
     });
     if (leads.length > 0) {
       finalAssigneeIds = leads.map((m) => m.userId);
     } else {
-      // Fall back to any member of the department
       const anyMember = await db.departmentMember.findFirst({
-        where: { departmentId: assignedDepartmentId },
+        where: { departmentId: resolvedAssignedDeptId },
         select: { userId: true },
       });
       if (anyMember) finalAssigneeIds = [anyMember.userId];
@@ -153,9 +195,9 @@ export async function POST(req: NextRequest) {
         ...rest,
         startDate: startDate ? new Date(startDate) : null,
         dueDate: dueDate ? new Date(dueDate) : null,
-        createdById: session.user.id,
-        requestingDepartmentId: requestingDepartmentId ?? null,
-        assignedDepartmentId: assignedDepartmentId ?? null,
+        createdById,
+        requestingDepartmentId: resolvedReqDeptId,
+        assignedDepartmentId: resolvedAssignedDeptId,
         status: (finalAssigneeIds.length > 0 || assignedDepartmentId) ? "ASSIGNED" : "TODO",
         assignees: finalAssigneeIds.length > 0 ? {
           create: finalAssigneeIds.map((userId) => ({ userId })),
@@ -169,7 +211,7 @@ export async function POST(req: NextRequest) {
     });
 
     await db.taskActivity.create({
-      data: { taskId: task.id, actorId: session.user.id, action: "created" },
+      data: { taskId: task.id, actorId: createdById, action: "created" },
     });
 
     if (finalAssigneeIds.length > 0) {

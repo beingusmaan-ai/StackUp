@@ -7,12 +7,19 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // session.user.id may be a stale JWT from an old DB — resolve real ID from email
+  let currentDbUserId: string = session.user.id;
+  if (session.user.email) {
+    const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
+    if (me) currentDbUserId = me.id;
+  }
+
   const { searchParams } = new URL(req.url);
-  const targetUserId = searchParams.get("userId") || session.user.id;
+  const targetUserId = searchParams.get("userId") || currentDbUserId;
   const month = parseInt(searchParams.get("month") || String(new Date().getMonth() + 1));
   const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
 
-  if (session.user.role === "TEAM_MEMBER" && targetUserId !== session.user.id) {
+  if (session.user.role === "TEAM_MEMBER" && targetUserId !== currentDbUserId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -93,7 +100,7 @@ export async function GET(req: NextRequest) {
 }
 
 const createSchema = z.object({
-  userId: z.string().min(1),
+  userId: z.string().optional(),
   taskId: z.string().optional().nullable(),
   date: z.string(),
   hours: z.number().min(0.25).max(24),
@@ -104,18 +111,26 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  let currentDbUserId: string = session.user.id;
+  if (session.user.email) {
+    const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
+    if (me) currentDbUserId = me.id;
+  }
+
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
 
-  if (session.user.role === "TEAM_MEMBER" && parsed.data.userId !== session.user.id) {
+  const resolvedUserId = parsed.data.userId || currentDbUserId;
+
+  if (session.user.role === "TEAM_MEMBER" && resolvedUserId !== currentDbUserId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
     const entry = await db.timeEntry.create({
       data: {
-        userId: parsed.data.userId,
+        userId: resolvedUserId,
         taskId: parsed.data.taskId || null,
         date: new Date(parsed.data.date),
         hours: parsed.data.hours,

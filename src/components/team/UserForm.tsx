@@ -13,6 +13,9 @@ interface Department {
 interface UserFormProps {
   onClose: () => void;
   onSuccess: () => void;
+  isDeptAdmin?: boolean;
+  adminDeptIds?: string[];
+  isSelf?: boolean;
   editUser?: {
     id: string;
     name: string;
@@ -24,7 +27,7 @@ interface UserFormProps {
   } | null;
 }
 
-export function UserForm({ onClose, onSuccess, editUser }: UserFormProps) {
+export function UserForm({ onClose, onSuccess, editUser, isDeptAdmin, adminDeptIds, isSelf }: UserFormProps) {
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDeptIds, setSelectedDeptIds] = useState<string[]>([]);
@@ -40,7 +43,11 @@ export function UserForm({ onClose, onSuccess, editUser }: UserFormProps) {
   useEffect(() => {
     fetch("/api/departments")
       .then((r) => r.json())
-      .then((d) => setDepartments(d.data || []));
+      .then((d) => {
+        const all: Department[] = d.data || [];
+        // Dept admins only see their own depts
+        setDepartments(isDeptAdmin && adminDeptIds ? all.filter((dept) => adminDeptIds.includes(dept.id)) : all);
+      });
 
     if (editUser) {
       fetch(`/api/users/${editUser.id}`)
@@ -49,8 +56,11 @@ export function UserForm({ onClose, onSuccess, editUser }: UserFormProps) {
           const memberships = d.data?.departmentMemberships ?? [];
           setSelectedDeptIds(memberships.map((m: { departmentId: string }) => m.departmentId));
         });
+    } else if (isDeptAdmin && adminDeptIds) {
+      // Pre-select dept admin's depts for new users
+      setSelectedDeptIds(adminDeptIds);
     }
-  }, [editUser]);
+  }, [editUser, isDeptAdmin, adminDeptIds]);
 
   function toggleDept(id: string) {
     setSelectedDeptIds((prev) =>
@@ -123,17 +133,25 @@ export function UserForm({ onClose, onSuccess, editUser }: UserFormProps) {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1.5">System Role</label>
-              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="TEAM_MEMBER">Team Member</option>
-                <option value="TEAM_LEAD">Team Lead</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-            </div>
-            <div>
+          <div className={isDeptAdmin ? "" : "grid grid-cols-2 gap-4"}>
+            {!isDeptAdmin && (
+              <div>
+                <label className="block text-sm font-medium mb-1.5">System Role</label>
+                <select
+                  value={form.role}
+                  onChange={(e) => setForm({ ...form, role: e.target.value })}
+                  disabled={isSelf}
+                  title={isSelf ? "You cannot change your own role" : undefined}
+                  className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="TEAM_MEMBER">Team Member</option>
+                  <option value="TEAM_LEAD">Team Lead</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+                {isSelf && <p className="text-[11px] text-muted-foreground mt-1">You cannot change your own role</p>}
+              </div>
+            )}
+            <div className={isDeptAdmin ? "" : ""}>
               <label className="block text-sm font-medium mb-1.5">Job Title</label>
               <input
                 value={form.marketingRole}
@@ -144,7 +162,8 @@ export function UserForm({ onClose, onSuccess, editUser }: UserFormProps) {
             </div>
           </div>
 
-          {departments.length > 0 && (
+          {/* Dept admins editing an existing user cannot change team memberships */}
+          {!(isDeptAdmin && editUser) && departments.length > 0 && (
             <div>
               <label className="block text-sm font-medium mb-2">Teams</label>
               <div className="grid grid-cols-2 gap-2">
@@ -167,11 +186,13 @@ export function UserForm({ onClose, onSuccess, editUser }: UserFormProps) {
             </div>
           )}
 
-          <div className="flex items-center gap-3">
-            <input type="checkbox" id="isActive" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-              className="w-4 h-4 rounded" />
-            <label htmlFor="isActive" className="text-sm font-medium">Active member</label>
-          </div>
+          {!isDeptAdmin && (
+            <div className="flex items-center gap-3">
+              <input type="checkbox" id="isActive" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                className="w-4 h-4 rounded" />
+              <label htmlFor="isActive" className="text-sm font-medium">Active member</label>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}

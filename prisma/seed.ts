@@ -105,7 +105,44 @@ async function main() {
     });
   }
 
-  console.log("✅ Users upserted (IDs preserved for existing users)");
+  console.log("✅ Users upserted");
+
+  // Create default workspace
+  const workspace = await db.workspace.upsert({
+    where: { slug: "arthur-lawrence" },
+    update: {},
+    create: {
+      name: "Arthur Lawrence",
+      slug: "arthur-lawrence",
+      description: "Arthur Lawrence Marketing Hub",
+      color: "#e8170b",
+    },
+  });
+  console.log(`✅ Default workspace "${workspace.name}" ready`);
+
+  // Add all users as workspace members
+  const allUsers = await db.user.findMany({ select: { id: true, role: true, email: true } });
+  for (const user of allUsers) {
+    const isOwner = user.email === "aseem.jibran@arthurlawrence.net";
+    await db.workspaceMember.upsert({
+      where: { workspaceId_userId: { workspaceId: workspace.id, userId: user.id } },
+      update: {},
+      create: {
+        workspaceId: workspace.id,
+        userId: user.id,
+        role: isOwner ? "OWNER" : user.role === "ADMIN" ? "ADMIN" : "MEMBER",
+      },
+    });
+  }
+  console.log(`✅ All users added to workspace`);
+
+  // Backfill existing campaigns
+  const backfilled = await db.campaign.updateMany({
+    where: { workspaceId: null },
+    data: { workspaceId: workspace.id },
+  });
+  console.log(`✅ Backfilled ${backfilled.count} campaigns to default workspace`);
+
   console.log("\n🎉 Database ready!\n");
   console.log("Login Credentials:");
   console.log("  Aseem Jibran:      aseem.jibran@arthurlawrence.net    / admin123");

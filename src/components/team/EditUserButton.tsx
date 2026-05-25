@@ -14,9 +14,12 @@ interface EditUserButtonProps {
     department?: string | null;
     isActive: boolean;
   };
+  onSuccess?: () => void;
+  isDeptAdmin?: boolean;
+  isSelf?: boolean;
 }
 
-export function EditUserButton({ user }: EditUserButtonProps) {
+export function EditUserButton({ user, onSuccess, isDeptAdmin, isSelf }: EditUserButtonProps) {
   const [showForm, setShowForm] = useState(false);
 
   return (
@@ -32,10 +35,12 @@ export function EditUserButton({ user }: EditUserButtonProps) {
       {showForm && (
         <UserForm
           editUser={user}
+          isDeptAdmin={isDeptAdmin}
+          isSelf={isSelf}
           onClose={() => setShowForm(false)}
           onSuccess={() => {
             setShowForm(false);
-            window.location.reload();
+            onSuccess?.();
           }}
         />
       )}

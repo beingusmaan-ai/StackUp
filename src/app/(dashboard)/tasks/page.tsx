@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Plus, List, LayoutGrid, Search, CalendarDays, ChevronDown, Sparkles, X } from "lucide-react";
+import { Plus, List, LayoutGrid, Search, CalendarDays, ChevronDown, Sparkles, X, Megaphone } from "lucide-react";
 import { LogTimeModal } from "@/components/tasks/LogTimeModal";
 import { SmartBreakdownModal } from "@/components/tasks/SmartBreakdownModal";
 import { RiskFlagsPanel } from "@/components/tasks/RiskFlagsPanel";
@@ -55,7 +55,117 @@ const PRIORITY_DOT: Record<string, string> = {
 };
 
 type ViewMode = "list" | "kanban" | "calendar";
-type TaskTab = "all" | "mine" | "incoming" | "outgoing";
+type TaskTab = "all" | "byProject" | "mine" | "incoming" | "outgoing";
+
+interface ProjectGroup { label: string; id: string | null; tasks: Task[] }
+
+function ByProjectView({
+  groups,
+  onTaskOpen,
+  onAddTask,
+}: {
+  groups: ProjectGroup[];
+  onTaskOpen: (id: string) => void;
+  onAddTask: () => void;
+}) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  function toggle(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  if (groups.length === 0) {
+    return (
+      <div className="bg-card border border-border rounded-lg px-4 py-16 text-center">
+        <p className="text-[13px] text-muted-foreground">No tasks found.</p>
+        <button onClick={onAddTask} className="mt-3 text-[13px] text-[#e8170b] font-medium">
+          + Create your first task
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {groups.map((group) => {
+        const key = group.id ?? "__none__";
+        const open = !collapsed.has(key);
+        const done = group.tasks.filter((t) => t.status === "COMPLETED").length;
+        return (
+          <div key={key} className="bg-card border border-border rounded-lg overflow-hidden">
+            {/* Project header */}
+            <button
+              onClick={() => toggle(key)}
+              className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-muted/40 transition-colors text-left"
+            >
+              <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform flex-shrink-0", !open && "-rotate-90")} />
+              <Megaphone className="w-3.5 h-3.5 text-[#e8170b] flex-shrink-0" />
+              <span className="text-[13px] font-semibold text-foreground flex-1 truncate">{group.label}</span>
+              <span className="text-[11px] text-muted-foreground flex-shrink-0">
+                {done}/{group.tasks.length} done
+              </span>
+            </button>
+
+            {/* Task rows */}
+            {open && (
+              <>
+                <div className="grid text-[11px] font-semibold text-muted-foreground uppercase tracking-wide border-t border-b border-border bg-muted/40"
+                  style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr" }}>
+                  <div className="px-4 py-2">Task</div>
+                  <div className="px-3 py-2">Status</div>
+                  <div className="px-3 py-2">Priority</div>
+                  <div className="px-3 py-2">Assignees</div>
+                  <div className="px-3 py-2">Due Date</div>
+                </div>
+                <div className="divide-y divide-border">
+                  {group.tasks.map((task) => {
+                    const overdue = isOverdue(task.dueDate) && task.status !== "COMPLETED";
+                    return (
+                      <div
+                        key={task.id}
+                        onClick={() => onTaskOpen(task.id)}
+                        className="grid items-center hover:bg-muted/30 cursor-pointer transition-colors group"
+                        style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr" }}
+                      >
+                        <div className="px-4 py-2.5 flex items-center gap-2.5 min-w-0">
+                          <span className={cn("w-1.5 h-1.5 rounded-sm flex-shrink-0", PRIORITY_DOT[task.priority] ?? "bg-slate-300")} />
+                          <div className="min-w-0">
+                            <p className={cn(
+                              "text-[13px] font-medium truncate group-hover:text-[#e8170b] transition-colors",
+                              task.status === "COMPLETED" ? "line-through text-muted-foreground" : "text-foreground"
+                            )}>
+                              {task.title}
+                            </p>
+                            {task.taskType && (
+                              <p className="text-[11px] text-muted-foreground truncate">{task.taskType}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="px-3 py-2.5"><StatusBadge status={task.status} /></div>
+                        <div className="px-3 py-2.5"><PriorityBadge priority={task.priority} /></div>
+                        <div className="px-3 py-2.5">
+                          <AvatarGroup users={task.assignees.map((a) => a.user)} max={3} />
+                        </div>
+                        <div className={cn("px-3 py-2.5 text-[12px]", overdue ? "text-red-500 font-medium" : "text-muted-foreground")}>
+                          {formatDate(task.dueDate)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function TasksPage() {
   const { taskView, setTaskView, activeTeamId } = useUIStore();
@@ -70,14 +180,16 @@ export default function TasksPage() {
   useEffect(() => {
     const taskId = searchParams.get("task");
     const filter = searchParams.get("filter");
+    const searchQ = searchParams.get("search");
 
     if (taskId) setSelectedTaskId(taskId);
+    if (searchQ) setSearch(searchQ);
 
     if (filter === "today")     setDateFilter("today");
     if (filter === "overdue")   setDateFilter("overdue");
     if (filter === "completed") setStatusFilter("COMPLETED");
 
-    if (taskId || filter) router.replace("/tasks", { scroll: false });
+    if (taskId || filter || searchQ) router.replace("/tasks", { scroll: false });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -123,7 +235,7 @@ export default function TasksPage() {
       if (statusFilter) params.set("status", statusFilter);
       if (priorityFilter) params.set("priority", priorityFilter);
       if (taskTab === "incoming" || taskTab === "outgoing") params.set("tab", taskTab);
-      if (activeTeamId && taskTab !== "incoming" && taskTab !== "outgoing") params.set("teamId", activeTeamId);
+      if (activeTeamId && taskTab !== "incoming" && taskTab !== "outgoing" && taskTab !== "byProject") params.set("teamId", activeTeamId);
       const res = await fetch(`/api/tasks?${params}`);
       return res.json();
     },
@@ -251,6 +363,20 @@ export default function TasksPage() {
     session?.user?.id ? t.assignees.some((a) => a.user.id === session.user.id) : false
   );
 
+  const tasksByProject = useMemo(() => {
+    const groups = new Map<string, { label: string; id: string | null; tasks: Task[] }>();
+    for (const task of filteredTasks) {
+      const key = task.campaign?.id ?? "__none__";
+      if (!groups.has(key)) {
+        groups.set(key, { label: task.campaign?.name ?? "No Project", id: task.campaign?.id ?? null, tasks: [] });
+      }
+      groups.get(key)!.tasks.push(task);
+    }
+    return Array.from(groups.values()).sort((a, b) =>
+      a.id === null ? 1 : b.id === null ? -1 : a.label.localeCompare(b.label)
+    );
+  }, [filteredTasks]);
+
   return (
     <div>
       {/* Page header */}
@@ -315,6 +441,7 @@ export default function TasksPage() {
       <div className="flex items-center gap-1 mb-4 border-b border-border">
         {([
           { tab: "all", label: "All Tasks" },
+          { tab: "byProject", label: "By Project" },
           { tab: "mine", label: "My Tasks" },
           { tab: "incoming", label: "Incoming Requests" },
           { tab: "outgoing", label: "Outgoing Requests" },
@@ -454,6 +581,12 @@ export default function TasksPage() {
         <div className="flex items-center justify-center h-64">
           <div className="w-6 h-6 border-2 border-[#e8170b] border-t-transparent rounded-full animate-spin" />
         </div>
+      ) : taskTab === "byProject" ? (
+        <ByProjectView
+          groups={tasksByProject}
+          onTaskOpen={setSelectedTaskId}
+          onAddTask={() => { setFormPrefill(null); setShowForm(true); }}
+        />
       ) : view === "kanban" ? (
         <TaskKanbanBoard tasks={filteredTasks} onTaskOpen={setSelectedTaskId} onStatusChange={handleStatusChange} />
       ) : view === "calendar" ? (

@@ -19,20 +19,25 @@ export default async function DashboardPage() {
   const now = new Date();
   const activeTeamId = await getActiveTeamId();
 
-  // Resolve team members for scoped queries
+  // Resolve team members for scoped queries — validate the team exists first
   let teamMemberIds: string[] | null = null;
+  let validTeamId: string | null = null;
   if (activeTeamId) {
-    const memberships = await db.departmentMember.findMany({
-      where: { departmentId: activeTeamId },
-      select: { userId: true },
-    });
-    teamMemberIds = memberships.map((m) => m.userId);
+    const dept = await db.department.findUnique({ where: { id: activeTeamId }, select: { id: true } });
+    if (dept) {
+      const memberships = await db.departmentMember.findMany({
+        where: { departmentId: activeTeamId },
+        select: { userId: true },
+      });
+      teamMemberIds = memberships.length > 0 ? memberships.map((m) => m.userId) : null;
+      validTeamId = dept.id;
+    }
   }
 
   const taskWhere = teamMemberIds
-    ? { OR: [{ assignedDepartmentId: activeTeamId }, { assignees: { some: { userId: { in: teamMemberIds } } } }] }
+    ? { OR: [{ assignedDepartmentId: validTeamId }, { assignees: { some: { userId: { in: teamMemberIds } } } }] }
     : {};
-  const campaignWhere = activeTeamId ? { departmentId: activeTeamId } : {};
+  const campaignWhere = validTeamId ? { departmentId: validTeamId } : {};
 
   const [
     totalTasks,

@@ -29,6 +29,12 @@ export async function POST(
 
   if (!source) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  let currentDbUserId = session.user.id;
+  if (session.user.email) {
+    const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
+    if (me) currentDbUserId = me.id;
+  }
+
   const copy = await db.taskTemplate.create({
     data: {
       name: `${source.name} (Copy)`,
@@ -39,7 +45,7 @@ export async function POST(
       estimatedDays: source.estimatedDays,
       tags: source.tags,
       isBuiltIn: false,
-      createdById: session.user.id,
+      createdById: currentDbUserId,
       groups: {
         create: source.groups.map((g, gi) => ({
           name: g.name,

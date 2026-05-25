@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { getCallerDeptAdminIds } from "@/lib/dept-auth";
 import { notifyStatusChange, notifyAssignment } from "@/lib/slack";
 import { notifyStatusChange as emailStatusChange, notifyAssignment as emailAssignment } from "@/lib/email";
 
@@ -45,7 +46,7 @@ export async function GET(
         take: 20,
       },
       createdBy: { select: { id: true, name: true } },
-      campaign: { select: { id: true, name: true } },
+      campaign: { select: { id: true, name: true, departmentId: true } },
       list: { select: { id: true, name: true, folder: { select: { id: true, name: true } } } },
       requestingDepartment: { select: { id: true, name: true, color: true } },
       assignedDepartment: { select: { id: true, name: true, color: true } },
@@ -186,9 +187,22 @@ export async function DELETE(
 ) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role === "TEAM_MEMBER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { taskId } = await params;
+
+  const deptAdminIds = await getCallerDeptAdminIds(session);
+  if (deptAdminIds !== null) {
+    if (deptAdminIds.length === 0) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const task = await db.task.findUnique({
+      where: { id: taskId },
+      select: { campaign: { select: { departmentId: true } } },
+    });
+    const deptId = task?.campaign?.departmentId;
+    if (!deptId || !deptAdminIds.includes(deptId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   await db.task.delete({ where: { id: taskId } });
   return NextResponse.json({ success: true });
 }

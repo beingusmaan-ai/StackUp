@@ -81,7 +81,7 @@ interface TaskFormProps {
 }
 
 export function TaskForm({ onClose, onSuccess, editTask, defaultRecurring, defaultCampaignId, defaultListId, prefill }: TaskFormProps) {
-  const { activeTeamId } = useUIStore();
+  const { activeTeamId, activeWorkspaceId } = useUIStore();
   const [users, setUsers] = useState<User[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [myDepartments, setMyDepartments] = useState<Department[]>([]);
@@ -111,11 +111,12 @@ export function TaskForm({ onClose, onSuccess, editTask, defaultRecurring, defau
   });
 
   useEffect(() => {
-    const campaignUrl = activeTeamId
-      ? `/api/campaigns?departmentId=${activeTeamId}`
-      : "/api/campaigns";
+    const params = new URLSearchParams();
+    if (activeWorkspaceId) params.set("workspaceId", activeWorkspaceId);
+    const campaignUrl = `/api/campaigns?${params}`;
+    const usersUrl = activeTeamId ? `/api/users?departmentId=${activeTeamId}` : "/api/users";
     Promise.all([
-      fetch("/api/users").then((r) => r.json()),
+      fetch(usersUrl).then((r) => r.json()),
       fetch(campaignUrl).then((r) => r.json()),
       fetch("/api/departments?myTeams=true").then((r) => r.json()),
       fetch("/api/departments").then((r) => r.json()),
@@ -126,7 +127,7 @@ export function TaskForm({ onClose, onSuccess, editTask, defaultRecurring, defau
       setAllDepartments(allD.data || []);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeWorkspaceId]);
 
   const { data: foldersData } = useQuery({
     queryKey: ["folders", form.campaignId],
@@ -426,7 +427,7 @@ export function TaskForm({ onClose, onSuccess, editTask, defaultRecurring, defau
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Project</label>
+              <label className="block text-sm font-medium mb-1.5">Space / Project</label>
               <select
                 value={form.campaignId}
                 onChange={(e) => setForm({ ...form, campaignId: e.target.value, listId: "" })}
@@ -585,8 +586,6 @@ export function TaskForm({ onClose, onSuccess, editTask, defaultRecurring, defau
             <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
               {(form.assignedDepartmentId
                 ? users.filter((u) => u.departmentMemberships?.some((m) => m.departmentId === form.assignedDepartmentId))
-                : activeTeamId
-                ? users.filter((u) => u.departmentMemberships?.some((m) => m.departmentId === activeTeamId))
                 : users
               ).map((u) => (
                 <label key={u.id} className="flex items-center gap-2 p-2 rounded-xl hover:bg-muted cursor-pointer text-sm">
@@ -604,11 +603,8 @@ export function TaskForm({ onClose, onSuccess, editTask, defaultRecurring, defau
                   )}
                 </label>
               ))}
-              {(form.assignedDepartmentId || activeTeamId) &&
-                (form.assignedDepartmentId
-                  ? users.filter((u) => u.departmentMemberships?.some((m) => m.departmentId === form.assignedDepartmentId))
-                  : users.filter((u) => u.departmentMemberships?.some((m) => m.departmentId === activeTeamId!))
-                ).length === 0 && (
+              {form.assignedDepartmentId &&
+                users.filter((u) => u.departmentMemberships?.some((m) => m.departmentId === form.assignedDepartmentId)).length === 0 && (
                 <p className="col-span-2 text-[12px] text-muted-foreground py-2">No members in this team yet</p>
               )}
             </div>

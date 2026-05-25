@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { getCallerDeptAdminIds } from "@/lib/dept-auth";
 
 const listSchema = z.object({
   name: z.string().min(1).max(100),
@@ -31,8 +32,19 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role === "TEAM_MEMBER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { folderId } = await params;
+
+  const deptAdminIds = await getCallerDeptAdminIds(session);
+  if (deptAdminIds !== null) {
+    if (deptAdminIds.length === 0) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const folder = await db.projectFolder.findUnique({
+      where: { id: folderId },
+      select: { campaign: { select: { departmentId: true } } },
+    });
+    if (!folder?.campaign?.departmentId || !deptAdminIds.includes(folder.campaign.departmentId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
 
   const body = await req.json();
   const parsed = listSchema.safeParse(body);

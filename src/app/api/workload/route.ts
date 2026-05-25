@@ -17,11 +17,17 @@ export async function GET(req: NextRequest) {
 
   let userWhere: Record<string, unknown> = { isActive: true };
   if (teamId) {
-    const memberIds = await db.departmentMember.findMany({
-      where: { departmentId: teamId },
-      select: { userId: true },
-    });
-    userWhere = { isActive: true, id: { in: memberIds.map((m) => m.userId) } };
+    const dept = await db.department.findUnique({ where: { id: teamId }, select: { id: true } });
+    if (dept) {
+      const memberIds = await db.departmentMember.findMany({
+        where: { departmentId: teamId },
+        select: { userId: true },
+      });
+      if (memberIds.length > 0) {
+        userWhere = { isActive: true, id: { in: memberIds.map((m) => m.userId) } };
+      }
+    }
+    // If dept doesn't exist (stale ID) or has no members, fall through to show all users
   }
 
   const users = await db.user.findMany({

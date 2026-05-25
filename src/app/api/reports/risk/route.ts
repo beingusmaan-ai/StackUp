@@ -7,7 +7,13 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const departmentId = searchParams.get("departmentId");
+  const rawDeptId = searchParams.get("departmentId");
+
+  let departmentId: string | null = null;
+  if (rawDeptId) {
+    const dept = await db.department.findUnique({ where: { id: rawDeptId }, select: { id: true } });
+    if (dept) departmentId = dept.id;
+  }
 
   const now = new Date();
 
