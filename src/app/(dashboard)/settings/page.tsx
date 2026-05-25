@@ -3,19 +3,10 @@ import { db } from "@/lib/db";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { IntegrationsPanel } from "@/components/settings/IntegrationsPanel";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
+import { ProfileForm } from "@/components/settings/ProfileForm";
 
 export const metadata = { title: "Settings" };
 
-const MARKETING_ROLE_LABELS: Record<string, string> = {
-  CONTENT_WRITER: "Content Writer",
-  GRAPHIC_DESIGNER: "Graphic Designer",
-  VIDEO_EDITOR: "Video Editor",
-  SOCIAL_MEDIA_MANAGER: "Social Media Manager",
-  SEO_SPECIALIST: "SEO Specialist",
-  PERFORMANCE_MARKETER: "Performance Marketer",
-  CRM_EMAIL_MARKETER: "CRM/Email Marketer",
-  MARKETING_MANAGER: "Marketing Manager",
-};
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -41,14 +32,14 @@ export default async function SettingsPage() {
           <p className="text-sm text-muted-foreground mt-3">{user.email}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-2 gap-4 text-sm mb-5">
           <div>
             <p className="text-xs text-muted-foreground mb-1">System Role</p>
             <p className="font-medium">{user.role}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Marketing Role</p>
-            <p className="font-medium">{user.marketingRole ? MARKETING_ROLE_LABELS[user.marketingRole] : "—"}</p>
+            <p className="text-xs text-muted-foreground mb-1">Member since</p>
+            <p className="font-medium">{new Date(user.createdAt).toLocaleDateString()}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Department</p>
@@ -58,11 +49,13 @@ export default async function SettingsPage() {
                 : "—"}
             </p>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Member since</p>
-            <p className="font-medium">{new Date(user.createdAt).toLocaleDateString()}</p>
-          </div>
         </div>
+
+        <ProfileForm
+          userId={user.id}
+          initialName={user.name}
+          initialMarketingRole={user.marketingRole}
+        />
       </div>
 
       <div className="bg-card border border-border rounded-2xl p-6">
