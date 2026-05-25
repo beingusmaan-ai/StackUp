@@ -121,7 +121,7 @@ export default async function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground">Overview</h1>
-          <p className="text-[13px] text-muted-foreground mt-0.5">Here is the summary of your marketing data</p>
+          <p className="text-[13px] text-muted-foreground mt-0.5">Here is a summary of your team&apos;s activity</p>
         </div>
         <span className="hidden md:block text-[12px] text-muted-foreground bg-card border border-border rounded-xl px-3 py-1.5 font-medium">
           {today}
