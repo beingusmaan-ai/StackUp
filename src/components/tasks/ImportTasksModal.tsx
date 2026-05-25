@@ -322,9 +322,9 @@ export function ImportTasksModal({ onClose, onSuccess }: ImportTasksModalProps) 
                           <tr key={i} className={r.error ? "bg-red-50 dark:bg-red-950/20" : hasWarning ? "bg-amber-50 dark:bg-amber-950/10" : ""}>
                             <td className="px-3 py-1.5 text-center">
                               {r.error
-                                ? <AlertCircle className="w-3.5 h-3.5 text-red-500 inline" title={r.error} />
+                                ? <span title={r.error}><AlertCircle className="w-3.5 h-3.5 text-red-500 inline" /></span>
                                 : hasWarning
-                                ? <Info className="w-3.5 h-3.5 text-amber-500 inline" title={r.warnings.join(", ")} />
+                                ? <span title={r.warnings.join(", ")}><Info className="w-3.5 h-3.5 text-amber-500 inline" /></span>
                                 : <CheckCircle className="w-3.5 h-3.5 text-green-500 inline" />}
                             </td>
                             <td className="px-3 py-1.5 font-medium max-w-[140px] truncate">
