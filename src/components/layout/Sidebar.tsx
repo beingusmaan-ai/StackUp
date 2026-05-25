@@ -141,6 +141,10 @@ export function Sidebar() {
 
           {/* Header */}
           <Link href="/dashboard" className="h-[64px] px-3 flex items-center gap-2.5 border-b border-black/[0.07] dark:border-white/[0.06] flex-shrink-0 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors">
+            <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={LOGO_B64} alt="AL" width={28} height={28} className="object-contain w-full h-full" />
+            </div>
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-bold text-gray-800 dark:text-white leading-tight truncate">StackUp</p>
             </div>
