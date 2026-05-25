@@ -21,6 +21,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.role = (user as { role: string }).role;
         token.marketingRole = (user as { marketingRole?: string }).marketingRole;
         token.image = safeImage((user as { image?: string | null }).image);
+      } else if (token.email) {
+        // Refresh role and name from DB on every token refresh so changes take effect without re-login
+        const fresh = await db.user.findUnique({
+          where: { email: token.email as string },
+          select: { id: true, role: true, name: true, marketingRole: true, image: true },
+        });
+        if (fresh) {
+          token.id = fresh.id;
+          token.role = fresh.role;
+          token.name = fresh.name;
+          token.marketingRole = fresh.marketingRole;
+          if (!token.image) token.image = safeImage(fresh.image);
+        }
       }
       // Called when client-side update({ image }) is triggered
       if (trigger === "update" && "image" in (session ?? {})) {
