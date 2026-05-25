@@ -134,7 +134,7 @@ export default function TeamPage() {
         </div>
         {(isGlobalAdmin || isActiveDeptAdmin) && (
           <TeamMemberActions
-            isGlobalAdmin={isGlobalAdmin}
+            isGlobalAdmin={isGlobalAdmin && !activeTeamId}
             isDeptAdmin={isActiveDeptAdmin}
             adminDeptIds={adminDeptIds}
             onMutate={() => queryClient.invalidateQueries({ queryKey: ["team"] })}
@@ -142,8 +142,8 @@ export default function TeamPage() {
         )}
       </div>
 
-      {/* Teams overview — global admin only */}
-      {isGlobalAdmin && teams.length > 0 && (
+      {/* Teams overview — global admin only, hidden when a specific team is selected */}
+      {isGlobalAdmin && !activeTeamId && teams.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-5">
           {teams.map((team) => (
             <div

@@ -36,14 +36,12 @@ export async function GET(req: NextRequest) {
     });
     if (dept) {
       activeTeamName = dept.name;
-      if (!isGlobalAdmin) {
-        const memberships = await db.departmentMember.findMany({
-          where: { departmentId: teamId },
-          select: { userId: true },
-        });
-        if (memberships.length > 0) {
-          memberIdFilter = { id: { in: memberships.map((m) => m.userId) } };
-        }
+      const memberships = await db.departmentMember.findMany({
+        where: { departmentId: teamId },
+        select: { userId: true },
+      });
+      if (memberships.length > 0) {
+        memberIdFilter = { id: { in: memberships.map((m) => m.userId) } };
       }
     }
   }
