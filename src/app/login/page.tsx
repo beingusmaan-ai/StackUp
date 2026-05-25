@@ -52,7 +52,7 @@ export default function LoginPage() {
 
           {/* Logo */}
           <div className="mb-5 w-[68px] h-[68px] rounded-[18px] overflow-hidden shadow-lg flex items-center justify-center">
-            <Image src="/logo.jfif" alt="Arthur Lawrence" width={68} height={68} className="object-contain" />
+            <Image src="/logo.jpg" alt="Arthur Lawrence" width={68} height={68} className="object-contain" />
           </div>
 
           {/* Headline */}

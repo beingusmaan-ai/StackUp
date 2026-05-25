@@ -80,7 +80,7 @@ export function Sidebar() {
           className="flex items-center justify-center h-[64px] flex-shrink-0 hover:bg-white/10 transition-colors"
         >
           <div className="w-8 h-8 rounded-xl overflow-hidden bg-white flex items-center justify-center ring-2 ring-white/30">
-            <Image src="/logo.jfif" alt="AL" width={32} height={32} className="object-contain" />
+            <Image src="/logo.jpg" alt="AL" width={32} height={32} className="object-contain" />
           </div>
         </a>
 
