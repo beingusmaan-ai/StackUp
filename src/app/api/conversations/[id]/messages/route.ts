@@ -75,7 +75,7 @@ export async function POST(
   await db.conversation.update({ where: { id }, data: { updatedAt: new Date() } });
 
   // Push real-time event
-  await pusherServer.trigger(`private-conversation-${id}`, "new-message", message);
+  await pusherServer.trigger(`conversation-${id}`, "new-message", message);
 
   return NextResponse.json({ data: message }, { status: 201 });
 }

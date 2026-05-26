@@ -52,8 +52,12 @@ export default function MessagesPage() {
   const threadRef = useRef<HTMLDivElement>(null);
   const pusherRef = useRef<PusherJs | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const activeConvIdRef = useRef<string | null>(null);
 
   const myId = session?.user?.id ?? "";
+
+  // Keep ref in sync so Pusher callbacks always see the latest value
+  useEffect(() => { activeConvIdRef.current = activeConvId; }, [activeConvId]);
 
   const loadConversations = useCallback(async () => {
     const res = await fetch("/api/conversations");
@@ -74,21 +78,21 @@ export default function MessagesPage() {
     if (!pusherRef.current) {
       pusherRef.current = new PusherJs(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
         cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-        authEndpoint: "/api/pusher/auth",
       });
     }
 
     const pusher = pusherRef.current;
 
     conversations.forEach((conv) => {
-      const channelName = `private-conversation-${conv.id}`;
+      const channelName = `conversation-${conv.id}`;
       if (pusher.channel(channelName)) return; // already subscribed
 
       const channel = pusher.subscribe(channelName);
       channel.bind("new-message", (msg: Message) => {
-        const isActive = msg.conversationId === activeConvId;
+        const isActive = msg.conversationId === activeConvIdRef.current;
         if (isActive) {
           setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
+          setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
         }
         setConversations((prev) =>
           prev.map((c) => c.id === msg.conversationId
@@ -151,12 +155,34 @@ export default function MessagesPage() {
     setSending(true);
     const content = input.trim();
     setInput("");
+
+    // Optimistic update — show message instantly
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimistic: Message = {
+      id: optimisticId,
+      conversationId: activeConvId,
+      senderId: myId,
+      content,
+      createdAt: new Date().toISOString(),
+      sender: { id: myId, name: session?.user?.name ?? "You", image: session?.user?.image ?? null },
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+
     try {
-      await fetch(`/api/conversations/${activeConvId}/messages`, {
+      const res = await fetch(`/api/conversations/${activeConvId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
       });
+      const data = await res.json();
+      // Replace optimistic message with real one from server
+      if (data.data) {
+        setMessages((prev) => prev.map((m) => m.id === optimisticId ? data.data : m));
+      }
+    } catch {
+      // Remove optimistic message on failure
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
     } finally {
       setSending(false);
       inputRef.current?.focus();
