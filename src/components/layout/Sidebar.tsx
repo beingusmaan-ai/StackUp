@@ -98,7 +98,7 @@ export function Sidebar() {
         >
           <div className="w-8 h-8 rounded-xl overflow-hidden bg-white flex items-center justify-center ring-2 ring-white/30">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={LOGO_B64} alt="AL" width={32} height={32} className="object-contain" />
+            <img src="/logo.jpg" alt="AL" width={32} height={32} className="object-contain" />
           </div>
         </a>
 
