@@ -9,9 +9,10 @@ import { Send, Plus, Search, Users, MessageSquare, X, Check } from "lucide-react
 
 interface UserInfo { id: string; name: string; image: string | null; marketingRole?: string | null; }
 interface Message { id: string; conversationId: string; senderId: string; content: string; createdAt: string; sender: { id: string; name: string; image: string | null }; }
+interface ConvMember { userId: string; lastReadAt: string | null; user: UserInfo; }
 interface Conversation {
   id: string; type: string; name: string | null; teamId: string | null; unread: number;
-  members: { userId: string; user: UserInfo }[];
+  members: ConvMember[];
   messages: (Message & { sender: { name: string } })[];
   updatedAt: string;
 }
@@ -127,6 +128,14 @@ export default function MessagesPage() {
             ? { ...c, messages: [msg], updatedAt: msg.createdAt, unread: isActive ? 0 : c.unread + 1 }
             : c
           ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        );
+      });
+      channel.bind("read-receipt", ({ userId: readerId, lastReadAt }: { userId: string; lastReadAt: string }) => {
+        setConversations((prev) =>
+          prev.map((c) => c.id === conv.id
+            ? { ...c, members: c.members.map((m) => m.userId === readerId ? { ...m, lastReadAt } : m) }
+            : c
+          )
         );
       });
     });
@@ -348,6 +357,15 @@ export default function MessagesPage() {
               {messages.map((msg, i) => {
                 const isMe = msg.senderId === myId;
                 const showAvatar = !isMe && (i === 0 || messages[i - 1].senderId !== msg.senderId);
+                const isOptimistic = msg.id.startsWith("optimistic-");
+
+                // Read receipt: which OTHER members have lastReadAt >= this message's createdAt
+                const readers = !isMe || !activeConv ? [] : activeConv.members.filter(
+                  (m) => m.userId !== myId && m.lastReadAt && new Date(m.lastReadAt) >= new Date(msg.createdAt)
+                );
+                const isRead = readers.length > 0;
+                const isDelivered = !isOptimistic;
+
                 return (
                   <div key={msg.id} className={cn("flex gap-2 items-end", isMe ? "justify-end" : "justify-start")}>
                     {!isMe && (
@@ -362,9 +380,16 @@ export default function MessagesPage() {
                       <div className={cn("px-3.5 py-2 rounded-2xl text-[13px] leading-relaxed", isMe ? "bg-[#e8170b] text-white rounded-br-sm" : "bg-muted text-foreground rounded-bl-sm")}>
                         {msg.content}
                       </div>
-                      <span className="text-[10px] text-muted-foreground mt-0.5 mx-1">
-                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </span>
+                      <div className={cn("flex items-center gap-1 mt-0.5 mx-1", isMe ? "flex-row-reverse" : "flex-row")}>
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                        {isMe && (
+                          <span className={cn("text-[10px]", isRead ? "text-[#e8170b]" : "text-muted-foreground")} title={isRead ? `Read by ${readers.map(r => r.user.name).join(", ")}` : isDelivered ? "Delivered" : "Sending…"}>
+                            {isOptimistic ? "✓" : isRead ? "✓✓" : "✓✓"}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

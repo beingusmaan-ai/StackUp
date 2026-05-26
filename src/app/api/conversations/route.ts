@@ -21,7 +21,11 @@ export async function GET() {
     where: { members: { some: { userId } } },
     include: {
       members: {
-        include: { user: { select: { id: true, name: true, image: true, marketingRole: true } } },
+        select: {
+          userId: true,
+          lastReadAt: true,
+          user: { select: { id: true, name: true, image: true, marketingRole: true } },
+        },
       },
       messages: {
         orderBy: { createdAt: "desc" },

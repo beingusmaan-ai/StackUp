@@ -50,11 +50,13 @@ export async function GET(
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
-  // Mark as read
+  // Mark as read and broadcast read receipt
+  const now = new Date();
   await db.conversationMember.update({
     where: { conversationId_userId: { conversationId: id, userId } },
-    data: { lastReadAt: new Date() },
+    data: { lastReadAt: now },
   });
+  pusherServer.trigger(`conversation-${id}`, "read-receipt", { userId, lastReadAt: now.toISOString() }).catch(() => {});
 
   return NextResponse.json({ data: messages });
 }
