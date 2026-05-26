@@ -64,28 +64,41 @@ export default function MessagesPage() {
     fetch("/api/users").then((r) => r.json()).then((d) => setAllUsers(d.data ?? []));
   }, []);
 
-  // Subscribe to Pusher for active conversation
+  // Subscribe to ALL conversations via Pusher — one connection, many channels
   useEffect(() => {
-    if (!activeConvId || !process.env.NEXT_PUBLIC_PUSHER_KEY) return;
-    if (pusherRef.current) pusherRef.current.disconnect();
+    if (!conversations.length || !process.env.NEXT_PUBLIC_PUSHER_KEY) return;
 
-    const pusher = new PusherJs(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-      authEndpoint: "/api/pusher/auth",
+    if (!pusherRef.current) {
+      pusherRef.current = new PusherJs(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+        cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+        authEndpoint: "/api/pusher/auth",
+      });
+    }
+
+    const pusher = pusherRef.current;
+
+    conversations.forEach((conv) => {
+      const channelName = `private-conversation-${conv.id}`;
+      if (pusher.channel(channelName)) return; // already subscribed
+
+      const channel = pusher.subscribe(channelName);
+      channel.bind("new-message", (msg: Message) => {
+        const isActive = msg.conversationId === activeConvId;
+        if (isActive) {
+          setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
+        }
+        setConversations((prev) =>
+          prev.map((c) => c.id === msg.conversationId
+            ? { ...c, messages: [msg], updatedAt: msg.createdAt, unread: isActive ? 0 : c.unread + 1 }
+            : c
+          ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        );
+      });
     });
 
-    const channel = pusher.subscribe(`private-conversation-${activeConvId}`);
-    channel.bind("new-message", (msg: Message) => {
-      setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
-      setConversations((prev) =>
-        prev.map((c) => c.id === msg.conversationId ? { ...c, messages: [msg], updatedAt: msg.createdAt } : c)
-          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      );
-    });
-
-    pusherRef.current = pusher;
-    return () => { pusher.disconnect(); };
-  }, [activeConvId]);
+    return () => { pusherRef.current?.disconnect(); pusherRef.current = null; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations.length]);
 
   // Load messages when conversation selected
   useEffect(() => {
