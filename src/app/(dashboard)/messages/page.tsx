@@ -78,7 +78,7 @@ export default function MessagesPage() {
     channel.bind("new-message", (msg: Message) => {
       setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
       setConversations((prev) =>
-        prev.map((c) => c.id === msg.conversationId ? { ...c, messages: [{ ...msg, sender: { name: msg.sender.name } }], updatedAt: msg.createdAt } : c)
+        prev.map((c) => c.id === msg.conversationId ? { ...c, messages: [msg], updatedAt: msg.createdAt } : c)
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       );
     });
