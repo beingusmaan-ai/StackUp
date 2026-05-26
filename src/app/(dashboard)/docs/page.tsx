@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -8,10 +8,49 @@ import {
   FilePlus, Search, Globe, Lock, MoreHorizontal, Trash2,
   ChevronDown, FileText, Megaphone, CheckSquare,
   Pencil, Copy, Link2, FolderInput, X, Share2,
+  SlidersHorizontal, ArrowUpDown, User, Calendar, MapPin, Type,
 } from "lucide-react";
 import { cn, formatRelative } from "@/lib/utils";
 import { toast } from "sonner";
 import { ShareModal } from "@/components/docs/ShareModal";
+
+type FilterType = "title" | "location" | "createdBy" | "dateUpdated";
+type DocFilter =
+  | { type: "title"; value: string }
+  | { type: "location"; value: "has-project" | "has-task" | "no-location" }
+  | { type: "createdBy"; userId: string; name: string }
+  | { type: "dateUpdated"; days: number; label: string };
+
+type SortField = "title" | "updatedAt";
+type SortDir = "asc" | "desc";
+
+const FILTER_OPTIONS: { type: FilterType; label: string; icon: React.ElementType }[] = [
+  { type: "title",       label: "Title",        icon: Type },
+  { type: "location",    label: "Location",     icon: MapPin },
+  { type: "createdBy",   label: "Created by",   icon: User },
+  { type: "dateUpdated", label: "Date updated", icon: Calendar },
+];
+
+const LOCATION_OPTIONS = [
+  { value: "has-project" as const, label: "Has project" },
+  { value: "has-task"    as const, label: "Has task" },
+  { value: "no-location" as const, label: "No location" },
+];
+
+const DATE_OPTIONS: { days: number; label: string }[] = [
+  { days: 7,   label: "Last 7 days" },
+  { days: 30,  label: "Last 30 days" },
+  { days: 90,  label: "Last 90 days" },
+  { days: 180, label: "Last 6 months" },
+];
+
+function getFilterChipLabel(f: DocFilter): string {
+  if (f.type === "title")       return `Title: "${f.value}"`;
+  if (f.type === "location")    return `Location: ${LOCATION_OPTIONS.find(o => o.value === f.value)?.label ?? f.value}`;
+  if (f.type === "createdBy")   return `By: ${f.name}`;
+  if (f.type === "dateUpdated") return `Updated: ${f.label}`;
+  return "";
+}
 
 type Doc = {
   id: string;
@@ -120,6 +159,18 @@ export default function DocsPage() {
   const [moveTab, setMoveTab] = useState<"campaign" | "task">("campaign");
   const [moveSearch, setMoveSearch] = useState("");
 
+  // Filter & sort state
+  const [activeFilters, setActiveFilters] = useState<DocFilter[]>([]);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [filterStep, setFilterStep] = useState<"pick" | FilterType>("pick");
+  const [filterPickerSearch, setFilterPickerSearch] = useState("");
+  const [filterTitleInput, setFilterTitleInput] = useState("");
+  const [sortField, setSortField] = useState<SortField>("updatedAt");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ["docs"],
     queryFn: async () => { const r = await fetch("/api/docs"); return r.json(); },
@@ -216,11 +267,70 @@ export default function DocsPage() {
     );
   };
 
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) {
+        setShowFilterMenu(false); setFilterStep("pick"); setFilterPickerSearch(""); setFilterTitleInput("");
+      }
+    };
+    if (showFilterMenu) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showFilterMenu]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)) setShowSortMenu(false);
+    };
+    if (showSortMenu) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showSortMenu]);
+
+  const addFilter = (f: DocFilter) => {
+    setActiveFilters((prev) => {
+      const withoutSame = prev.filter((x) => x.type !== f.type);
+      return [...withoutSame, f];
+    });
+    setShowFilterMenu(false); setFilterStep("pick"); setFilterPickerSearch(""); setFilterTitleInput("");
+  };
+
+  const removeFilter = (type: FilterType) => setActiveFilters((prev) => prev.filter((f) => f.type !== type));
+
+  const uniqueCreators = useMemo(() => {
+    const seen = new Map<string, { id: string; name: string }>();
+    docs.forEach((d) => { if (!seen.has(d.createdById)) seen.set(d.createdById, d.createdBy); });
+    return Array.from(seen.values());
+  }, [docs]);
+
   const childCount = (id: string) => docs.filter((d) => d.parentId === id).length;
   const rootDocs = docs.filter((d) => !d.parentId);
-  const filtered = search
+
+  let filtered = (search
     ? docs.filter((d) => d.title.toLowerCase().includes(search.toLowerCase()))
-    : rootDocs;
+    : rootDocs
+  ).filter((doc) =>
+    activeFilters.every((f) => {
+      if (f.type === "title")       return doc.title.toLowerCase().includes(f.value.toLowerCase());
+      if (f.type === "location") {
+        if (f.value === "has-project")  return !!doc.campaign;
+        if (f.value === "has-task")     return !!doc.task;
+        if (f.value === "no-location")  return !doc.campaign && !doc.task;
+      }
+      if (f.type === "createdBy")   return doc.createdById === f.userId;
+      if (f.type === "dateUpdated") {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - f.days);
+        return new Date(doc.updatedAt) >= cutoff;
+      }
+      return true;
+    })
+  );
+
+  filtered = [...filtered].sort((a, b) => {
+    const cmp = sortField === "title"
+      ? a.title.localeCompare(b.title)
+      : new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
   return (
     <div className="min-h-full">
@@ -302,21 +412,220 @@ export default function DocsPage() {
         )}
       </div>
 
-      {/* Search + filter bar */}
-      <div className="flex items-center justify-between mb-3 gap-3">
-        <div className="flex items-center gap-2">
+      {/* Filter & sort bar */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+
+        {/* Filters button */}
+        <div className="relative" ref={filterMenuRef}>
+          <button
+            onClick={() => { setShowFilterMenu((v) => !v); setFilterStep("pick"); }}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors",
+              activeFilters.length > 0
+                ? "border-[#e8170b] text-[#e8170b] bg-[#e8170b]/5"
+                : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            )}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            Filters
+            {activeFilters.length > 0 && (
+              <span className="ml-0.5 min-w-[16px] h-[16px] bg-[#e8170b] text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1">
+                {activeFilters.length}
+              </span>
+            )}
+          </button>
+
+          {showFilterMenu && (
+            <div className="absolute left-0 top-full mt-1 w-56 bg-background border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+              {filterStep === "pick" && (
+                <>
+                  <div className="px-3 pt-3 pb-2">
+                    <p className="text-xs font-bold text-foreground mb-1">Filters</p>
+                    <button
+                      className="text-xs text-[#e8170b] font-medium"
+                      onClick={() => setFilterStep("title")}
+                    >
+                      + Add filter
+                    </button>
+                  </div>
+                  <div className="px-2 pb-2">
+                    <input
+                      value={filterPickerSearch}
+                      onChange={(e) => setFilterPickerSearch(e.target.value)}
+                      placeholder="Search…"
+                      className="w-full px-2.5 py-1.5 text-xs bg-muted rounded-lg outline-none border border-border"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="pb-1">
+                    {FILTER_OPTIONS.filter((o) =>
+                      o.label.toLowerCase().includes(filterPickerSearch.toLowerCase())
+                    ).map((o) => (
+                      <button
+                        key={o.type}
+                        onClick={() => { setFilterStep(o.type); setFilterPickerSearch(""); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors text-left"
+                      >
+                        <o.icon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {filterStep === "title" && (
+                <div className="p-3">
+                  <p className="text-xs font-semibold text-foreground mb-2">Title contains</p>
+                  <input
+                    value={filterTitleInput}
+                    onChange={(e) => setFilterTitleInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && filterTitleInput.trim()) addFilter({ type: "title", value: filterTitleInput.trim() }); }}
+                    placeholder="Type to filter…"
+                    className="w-full px-2.5 py-1.5 text-xs bg-muted rounded-lg outline-none border border-border mb-2"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => setFilterStep("pick")} className="flex-1 px-2 py-1 text-xs border border-border rounded-lg hover:bg-muted transition-colors">Back</button>
+                    <button
+                      onClick={() => { if (filterTitleInput.trim()) addFilter({ type: "title", value: filterTitleInput.trim() }); }}
+                      className="flex-1 px-2 py-1 text-xs bg-[#e8170b] text-white rounded-lg hover:bg-[#c91409] transition-colors"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {filterStep === "location" && (
+                <div className="p-2">
+                  <p className="text-xs font-semibold text-foreground px-1 py-1">Location</p>
+                  {LOCATION_OPTIONS.map((o) => (
+                    <button
+                      key={o.value}
+                      onClick={() => addFilter({ type: "location", value: o.value })}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-foreground hover:bg-muted rounded-lg transition-colors text-left"
+                    >
+                      <MapPin className="w-3.5 h-3.5 text-muted-foreground" /> {o.label}
+                    </button>
+                  ))}
+                  <button onClick={() => setFilterStep("pick")} className="w-full mt-1 px-2 py-1 text-xs text-muted-foreground hover:bg-muted rounded-lg transition-colors text-left">← Back</button>
+                </div>
+              )}
+
+              {filterStep === "createdBy" && (
+                <div className="p-2">
+                  <p className="text-xs font-semibold text-foreground px-1 py-1">Created by</p>
+                  <div className="max-h-44 overflow-y-auto">
+                    {uniqueCreators.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => addFilter({ type: "createdBy", userId: u.id, name: u.name })}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-foreground hover:bg-muted rounded-lg transition-colors text-left"
+                      >
+                        <span className="w-5 h-5 rounded-full bg-[#e8170b] text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0">
+                          {u.name[0]?.toUpperCase()}
+                        </span>
+                        {u.name}
+                      </button>
+                    ))}
+                    {uniqueCreators.length === 0 && <p className="text-xs text-muted-foreground px-2 py-1">No creators found</p>}
+                  </div>
+                  <button onClick={() => setFilterStep("pick")} className="w-full mt-1 px-2 py-1 text-xs text-muted-foreground hover:bg-muted rounded-lg transition-colors text-left">← Back</button>
+                </div>
+              )}
+
+              {filterStep === "dateUpdated" && (
+                <div className="p-2">
+                  <p className="text-xs font-semibold text-foreground px-1 py-1">Date updated</p>
+                  {DATE_OPTIONS.map((o) => (
+                    <button
+                      key={o.days}
+                      onClick={() => addFilter({ type: "dateUpdated", days: o.days, label: o.label })}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-foreground hover:bg-muted rounded-lg transition-colors text-left"
+                    >
+                      <Calendar className="w-3.5 h-3.5 text-muted-foreground" /> {o.label}
+                    </button>
+                  ))}
+                  <button onClick={() => setFilterStep("pick")} className="w-full mt-1 px-2 py-1 text-xs text-muted-foreground hover:bg-muted rounded-lg transition-colors text-left">← Back</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Sort button */}
+        <div className="relative" ref={sortMenuRef}>
+          <button
+            onClick={() => setShowSortMenu((v) => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <ArrowUpDown className="w-3.5 h-3.5" />
+            Sort
+          </button>
+          {showSortMenu && (
+            <div className="absolute left-0 top-full mt-1 w-44 bg-background border border-border rounded-xl shadow-xl z-50 py-1">
+              {([
+                { field: "updatedAt" as SortField, label: "Date updated" },
+                { field: "title"     as SortField, label: "Title (A–Z)" },
+              ] as const).map((o) => (
+                <button
+                  key={o.field}
+                  onClick={() => {
+                    if (sortField === o.field) setSortDir((d) => d === "asc" ? "desc" : "asc");
+                    else { setSortField(o.field); setSortDir("desc"); }
+                    setShowSortMenu(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center justify-between px-3 py-1.5 text-xs transition-colors hover:bg-muted",
+                    sortField === o.field ? "text-[#e8170b] font-medium" : "text-foreground"
+                  )}
+                >
+                  {o.label}
+                  {sortField === o.field && (
+                    <span className="text-[10px] text-muted-foreground">{sortDir === "asc" ? "↑" : "↓"}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Active filter chips */}
+        {activeFilters.map((f) => (
+          <span
+            key={f.type}
+            className="flex items-center gap-1 px-2.5 py-1 bg-[#e8170b]/8 border border-[#e8170b]/20 text-[#e8170b] rounded-full text-xs font-medium"
+          >
+            {getFilterChipLabel(f)}
+            <button onClick={() => removeFilter(f.type)} className="hover:text-red-700 ml-0.5">
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+        {activeFilters.length > 0 && (
+          <button
+            onClick={() => setActiveFilters([])}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Clear all
+          </button>
+        )}
+
+        {/* Right side: count + search */}
+        <div className="ml-auto flex items-center gap-2">
           <span className="text-xs text-muted-foreground font-medium">
             {filtered.length} doc{filtered.length !== 1 ? "s" : ""}
           </span>
-        </div>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search docs…"
-            className="pl-8 pr-3 py-1.5 rounded-xl border border-border bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-[#e8170b] w-56"
-          />
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search docs…"
+              className="pl-8 pr-3 py-1.5 rounded-xl border border-border bg-muted text-xs focus:outline-none focus:ring-2 focus:ring-[#e8170b] w-48"
+            />
+          </div>
         </div>
       </div>
 
