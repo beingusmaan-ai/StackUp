@@ -71,10 +71,32 @@ export function Sidebar() {
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showCampaignForm, setShowCampaignForm] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const createMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!session) return;
+    const fetchUnread = () => {
+      fetch("/api/conversations")
+        .then((r) => r.json())
+        .then(({ data }) => {
+          if (!Array.isArray(data)) return;
+          const total = data.reduce((sum: number, c: { unread: number }) => sum + (c.unread || 0), 0);
+          setUnreadMessages(total);
+        })
+        .catch(() => {});
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30_000);
+    return () => clearInterval(interval);
+  }, [session]);
 
   const onReportsPath = pathname === "/reports" || pathname.startsWith("/reports/");
   useEffect(() => { if (onReportsPath) setReportsOpen(true); }, [onReportsPath]);
+
+  useEffect(() => {
+    if (pathname === "/messages") setUnreadMessages(0);
+  }, [pathname]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -107,17 +129,24 @@ export function Sidebar() {
         <nav className="flex-1 overflow-y-auto py-2 flex flex-col items-center gap-0.5 scrollbar-none">
           {ALL_NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            const isMessages = item.href === "/messages";
+            const badge = isMessages && unreadMessages > 0 ? unreadMessages : 0;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 title={item.label}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 w-10 py-2 rounded-xl transition-all",
+                  "relative flex flex-col items-center justify-center gap-0.5 w-10 py-2 rounded-xl transition-all",
                   isActive ? "bg-white/25" : "hover:bg-white/15"
                 )}
               >
                 <item.icon className="w-[16px] h-[16px] text-white" />
+                {badge > 0 && (
+                  <span className="absolute top-1 right-1 min-w-[14px] h-[14px] bg-white text-[#e8170b] text-[8px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                    {badge > 99 ? "99+" : badge}
+                  </span>
+                )}
                 <span className="text-[8px] text-white/80 font-medium leading-tight text-center max-w-full truncate px-0.5">
                   {item.label}
                 </span>
@@ -212,7 +241,12 @@ export function Sidebar() {
                                   "w-3.5 h-3.5 flex-shrink-0",
                                   isActive ? "text-[#e8170b]" : "text-gray-400 dark:text-white/30"
                                 )} />
-                                <span className="truncate">{item.label}</span>
+                                <span className="truncate flex-1">{item.label}</span>
+                                {item.href === "/messages" && unreadMessages > 0 && (
+                                  <span className="ml-auto min-w-[18px] h-[18px] bg-[#e8170b] text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1 leading-none flex-shrink-0">
+                                    {unreadMessages > 99 ? "99+" : unreadMessages}
+                                  </span>
+                                )}
                               </Link>
                               {isReports && (
                                 <button
