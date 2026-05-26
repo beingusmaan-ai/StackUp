@@ -38,15 +38,33 @@ export async function GET(req: NextRequest) {
   const departmentId = searchParams.get("departmentId");
   const workspaceId = searchParams.get("workspaceId");
   const picker = searchParams.get("picker") === "1";
+  const sidebar = searchParams.get("sidebar") === "1";
 
-  const allowedDeptIds = await getUserAllowedDeptIds(session);
+  let allowedDeptIds = await getUserAllowedDeptIds(session);
+
+  // In sidebar mode, restrict admin users to their own department memberships.
+  // Admins with no memberships fall back to seeing all (null = no restriction).
+  if (sidebar && allowedDeptIds === null) {
+    let dbUserId = session.user.id;
+    if (session.user.email) {
+      const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
+      if (me) dbUserId = me.id;
+    }
+    const memberships = await db.departmentMember.findMany({
+      where: { userId: dbUserId },
+      select: { departmentId: true },
+    });
+    if (memberships.length > 0) {
+      allowedDeptIds = memberships.map((m) => m.departmentId);
+    }
+  }
 
   const where: Record<string, unknown> = {};
   if (workspaceId) where.workspaceId = workspaceId;
 
   if (!picker) {
     if (allowedDeptIds !== null) {
-      // Non-admin: restrict to their own departments
+      // Non-admin (or admin in sidebar mode): restrict to their departments
       const effectiveDeptIds =
         departmentId && allowedDeptIds.includes(departmentId) ? [departmentId] : allowedDeptIds;
       where.departmentId = { in: effectiveDeptIds };

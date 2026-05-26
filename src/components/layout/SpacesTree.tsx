@@ -148,10 +148,10 @@ export function SpacesTree({ activeListId }: { activeListId: string | null }) {
 
   useEffect(() => {
     const params = new URLSearchParams();
+    params.set("sidebar", "1");
     if (activeWorkspaceId) params.set("workspaceId", activeWorkspaceId);
     if (activeTeamId) params.set("departmentId", activeTeamId);
-    const query = params.toString();
-    fetch(`/api/campaigns${query ? `?${query}` : ""}`)
+    fetch(`/api/campaigns?${params.toString()}`)
       .then((r) => r.json())
       .then((d) => setCampaigns(d.data ?? []))
       .catch(() => {});
