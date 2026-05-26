@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import PusherJs from "pusher-js";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { cn, getInitials } from "@/lib/utils";
 import { Send, Plus, Search, Users, MessageSquare, X, Check } from "lucide-react";
@@ -49,7 +50,7 @@ export default function MessagesPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
-  const pusherRef = useRef<null>(null);
+  const pusherRef = useRef<PusherJs | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const activeConvIdRef = useRef<string | null>(null);
   const lastMessageIdRef = useRef<string | null>(null);
@@ -71,42 +72,68 @@ export default function MessagesPage() {
     fetch("/api/users").then((r) => r.json()).then((d) => setAllUsers(d.data ?? []));
   }, []);
 
-  // Poll for new messages in the active conversation every 2.5s
+  // Pusher: subscribe to all conversation channels for real-time messages
   useEffect(() => {
-    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-    if (!activeConvId) return;
+    if (!conversations.length) return;
+    const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
+    const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
 
-    async function poll() {
-      const convId = activeConvIdRef.current;
-      if (!convId) return;
-      const lastId = lastMessageIdRef.current;
-      if (!lastId) return;
-      try {
-        const res = await fetch(`/api/conversations/${convId}/messages?after=${lastId}`);
-        const data = await res.json();
-        const newMsgs: Message[] = data.data ?? [];
-        if (!newMsgs.length) return;
-        lastMessageIdRef.current = newMsgs[newMsgs.length - 1].id;
-        setMessages((prev) => {
-          const existingIds = new Set(prev.map((m) => m.id));
-          const fresh = newMsgs.filter((m) => !existingIds.has(m.id));
-          if (!fresh.length) return prev;
+    if (!key || !cluster) {
+      // Fallback: poll every 2.5s if Pusher not configured
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      if (!activeConvId) return;
+      async function poll() {
+        const convId = activeConvIdRef.current;
+        const lastId = lastMessageIdRef.current;
+        if (!convId || !lastId) return;
+        try {
+          const res = await fetch(`/api/conversations/${convId}/messages?after=${lastId}`);
+          const data = await res.json();
+          const newMsgs: Message[] = data.data ?? [];
+          if (!newMsgs.length) return;
+          lastMessageIdRef.current = newMsgs[newMsgs.length - 1].id;
+          setMessages((prev) => {
+            const ids = new Set(prev.map((m) => m.id));
+            const fresh = newMsgs.filter((m) => !ids.has(m.id));
+            if (!fresh.length) return prev;
+            setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+            return [...prev, ...fresh];
+          });
+        } catch { /* silent */ }
+      }
+      pollTimerRef.current = setInterval(poll, 2500);
+      return () => { if (pollTimerRef.current) clearInterval(pollTimerRef.current); };
+    }
+
+    // Pusher path
+    if (!pusherRef.current) {
+      pusherRef.current = new PusherJs(key, { cluster });
+    }
+    const pusher = pusherRef.current;
+
+    conversations.forEach((conv) => {
+      const channelName = `conversation-${conv.id}`;
+      if (pusher.channel(channelName)) return;
+      const channel = pusher.subscribe(channelName);
+      channel.bind("new-message", (msg: Message) => {
+        const isActive = msg.conversationId === activeConvIdRef.current;
+        if (isActive) {
+          setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
+          lastMessageIdRef.current = msg.id;
           setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-          return [...prev, ...fresh];
-        });
-        // Update conversation list preview + unread for OTHER conversations
+        }
         setConversations((prev) =>
-          prev.map((c) => c.id === convId
-            ? { ...c, messages: [newMsgs[newMsgs.length - 1]], updatedAt: newMsgs[newMsgs.length - 1].createdAt }
+          prev.map((c) => c.id === msg.conversationId
+            ? { ...c, messages: [msg], updatedAt: msg.createdAt, unread: isActive ? 0 : c.unread + 1 }
             : c
           ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
         );
-      } catch { /* silent */ }
-    }
+      });
+    });
 
-    pollTimerRef.current = setInterval(poll, 2500);
-    return () => { if (pollTimerRef.current) clearInterval(pollTimerRef.current); };
-  }, [activeConvId]);
+    return () => { pusherRef.current?.disconnect(); pusherRef.current = null; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations.length, activeConvId]);
 
   // Load messages when conversation selected
   useEffect(() => {

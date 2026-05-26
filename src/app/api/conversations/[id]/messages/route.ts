@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { pusherServer } from "@/lib/pusher";
 
 async function getDbUserId(session: { user: { id: string; email?: string | null } }) {
   if (session.user.email) {
@@ -84,6 +85,9 @@ export async function POST(
 
   // Update conversation updatedAt
   await db.conversation.update({ where: { id }, data: { updatedAt: new Date() } });
+
+  // Trigger real-time push (non-blocking)
+  pusherServer.trigger(`conversation-${id}`, "new-message", message).catch(() => {});
 
   return NextResponse.json({ data: message }, { status: 201 });
 }
