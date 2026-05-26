@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   FilePlus, Search, Globe, Lock, MoreHorizontal, Trash2,
-  ChevronDown, FileText, Users, Megaphone, CheckSquare,
-  Pencil, Copy, Link2, FolderInput, X,
+  ChevronDown, FileText, Megaphone, CheckSquare,
+  Pencil, Copy, Link2, FolderInput, X, Share2,
 } from "lucide-react";
 import { cn, formatRelative } from "@/lib/utils";
-import { UserAvatar } from "@/components/shared/UserAvatar";
 import { toast } from "sonner";
+import { ShareModal } from "@/components/docs/ShareModal";
 
 type Doc = {
   id: string;
@@ -113,6 +113,7 @@ export default function DocsPage() {
   const [search, setSearch] = useState("");
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [showNewMenu, setShowNewMenu] = useState(false);
+  const [shareDoc, setShareDoc] = useState<Doc | null>(null);
   const [showMoveModal, setShowMoveModal] = useState<{ id: string; title: string } | null>(null);
   const [moveCampaigns, setMoveCampaigns] = useState<{ id: string; name: string }[]>([]);
   const [moveTasks, setMoveTasks] = useState<{ id: string; title: string }[]>([]);
@@ -322,11 +323,10 @@ export default function DocsPage() {
       {/* Docs table */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         {/* Table header */}
-        <div className="grid grid-cols-[1fr_160px_140px_100px_80px] gap-4 px-4 py-2.5 border-b border-border bg-muted/40">
+        <div className="grid grid-cols-[1fr_160px_140px_120px] gap-4 px-4 py-2.5 border-b border-border bg-muted/40">
           <span className="text-xs font-semibold text-muted-foreground">Name</span>
           <span className="text-xs font-semibold text-muted-foreground">Location</span>
           <span className="text-xs font-semibold text-muted-foreground">Date updated</span>
-          <span className="text-xs font-semibold text-muted-foreground">Created by</span>
           <span className="text-xs font-semibold text-muted-foreground">Sharing</span>
         </div>
 
@@ -359,7 +359,7 @@ export default function DocsPage() {
                 <div
                   key={doc.id}
                   onClick={() => router.push(`/docs/${doc.id}`)}
-                  className="grid grid-cols-[1fr_160px_140px_100px_80px] gap-4 px-4 py-3 hover:bg-muted/30 cursor-pointer transition-colors group relative items-center"
+                  className="grid grid-cols-[1fr_160px_140px_120px] gap-4 px-4 py-3 hover:bg-muted/30 cursor-pointer transition-colors group relative items-center"
                 >
                   {/* Name */}
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -392,19 +392,22 @@ export default function DocsPage() {
                   {/* Date updated */}
                   <span className="text-xs text-muted-foreground">{formatRelative(doc.updatedAt)}</span>
 
-                  {/* Created by */}
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <UserAvatar name={doc.createdBy.name} size="xs" />
-                    <span className="text-xs text-muted-foreground truncate">{doc.createdBy.name.split(" ")[0]}</span>
-                  </div>
-
                   {/* Sharing */}
-                  <div className="flex items-center gap-2">
-                    {doc.isPublic ? (
-                      <span title="Public link enabled"><Globe className="w-3.5 h-3.5 text-green-500" /></span>
-                    ) : (
-                      <span title="Private"><Lock className="w-3.5 h-3.5 text-muted-foreground/40" /></span>
-                    )}
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => setShareDoc(doc)}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-muted transition-colors group/share"
+                      title={doc.isPublic ? "Public — click to manage sharing" : "Private — click to share"}
+                    >
+                      {doc.isPublic ? (
+                        <Globe className="w-3.5 h-3.5 text-green-500" />
+                      ) : (
+                        <Lock className="w-3.5 h-3.5 text-muted-foreground/40 group-hover/share:text-muted-foreground" />
+                      )}
+                      <span className="text-xs text-muted-foreground group-hover/share:text-foreground transition-colors">
+                        {doc.isPublic ? "Public" : "Share"}
+                      </span>
+                    </button>
 
                     {/* ⋯ menu */}
                     <div className="relative ml-auto opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
@@ -477,6 +480,18 @@ export default function DocsPage() {
           </div>
         )}
       </div>
+
+      {/* Share modal */}
+      {shareDoc && (
+        <ShareModal
+          docId={shareDoc.id}
+          docTitle={shareDoc.title}
+          isPublic={shareDoc.isPublic ?? false}
+          createdBy={shareDoc.createdBy}
+          onClose={() => { setShareDoc(null); queryClient.invalidateQueries({ queryKey: ["docs"] }); }}
+          onPublicToggle={() => queryClient.invalidateQueries({ queryKey: ["docs"] })}
+        />
+      )}
 
       {/* Move to Project/Task modal */}
       {showMoveModal && (
