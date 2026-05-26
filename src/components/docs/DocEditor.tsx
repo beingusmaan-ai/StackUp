@@ -15,16 +15,18 @@ import {
   Bold, Italic, Strikethrough, Heading1, Heading2, Heading3,
   List, ListOrdered, CheckSquare, Quote, Code, Minus,
   AlignLeft, AlignCenter, AlignRight, Highlighter, Link2,
-  Save, Clock,
+  Save, Clock, Share2,
 } from "lucide-react";
 import { cn, formatRelative } from "@/lib/utils";
 import { toast } from "sonner";
+import { ShareModal } from "./ShareModal";
 
 type Doc = {
   id: string;
   title: string;
   icon?: string | null;
   content?: unknown;
+  isPublic?: boolean;
   updatedAt: string;
   createdBy: { name: string };
 };
@@ -42,6 +44,8 @@ export function DocEditor({ doc }: DocEditorProps) {
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(doc.updatedAt);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [isPublic, setIsPublic] = useState(doc.isPublic ?? false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const save = async (data: { title?: string; content?: unknown; icon?: string }) => {
@@ -189,13 +193,22 @@ export function DocEditor({ doc }: DocEditorProps) {
           <Link2 className="w-3.5 h-3.5" />
         </ToolBtn>
 
-        {/* Save status */}
-        <div className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          {saving ? (
-            <><Save className="w-3 h-3 animate-pulse" /> Saving…</>
-          ) : (
-            <><Clock className="w-3 h-3" /> Saved {formatRelative(lastSaved)}</>
-          )}
+        {/* Save status + Share */}
+        <div className="ml-auto flex items-center gap-3">
+          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            {saving ? (
+              <><Save className="w-3 h-3 animate-pulse" /> Saving…</>
+            ) : (
+              <><Clock className="w-3 h-3" /> Saved {formatRelative(lastSaved)}</>
+            )}
+          </span>
+          <button
+            onClick={() => setShowShare(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#e8170b] hover:bg-[#c91409] text-white text-xs font-medium transition-colors"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            Share
+          </button>
         </div>
       </div>
 
@@ -253,6 +266,17 @@ export function DocEditor({ doc }: DocEditorProps) {
           <EditorContent editor={editor} />
         </div>
       </div>
+
+      {showShare && (
+        <ShareModal
+          docId={doc.id}
+          docTitle={title}
+          isPublic={isPublic}
+          createdBy={doc.createdBy}
+          onClose={() => setShowShare(false)}
+          onPublicToggle={(v) => setIsPublic(v)}
+        />
+      )}
     </div>
   );
 }

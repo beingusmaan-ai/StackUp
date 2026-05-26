@@ -6,7 +6,10 @@ export default auth((req: Parameters<Parameters<typeof auth>[0]>[0]) => {
   const isAuthRoute = req.nextUrl.pathname.startsWith("/login");
   const isApiAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
 
-  if (isApiAuthRoute) return NextResponse.next();
+  const isPublicShare = req.nextUrl.pathname.startsWith("/share/");
+  const isPublicApi = req.nextUrl.pathname.startsWith("/api/docs/") && req.nextUrl.pathname.endsWith("/public");
+
+  if (isApiAuthRoute || isPublicShare || isPublicApi) return NextResponse.next();
 
   if (!isLoggedIn && !isAuthRoute) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));
