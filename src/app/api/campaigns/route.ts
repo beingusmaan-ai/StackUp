@@ -37,17 +37,22 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const departmentId = searchParams.get("departmentId");
   const workspaceId = searchParams.get("workspaceId");
+  const picker = searchParams.get("picker") === "1";
 
   const allowedDeptIds = await getUserAllowedDeptIds(session);
 
   const where: Record<string, unknown> = {};
   if (workspaceId) where.workspaceId = workspaceId;
 
-  if (allowedDeptIds !== null) {
-    // Non-admin: restrict to their own departments
-    const effectiveDeptIds =
-      departmentId && allowedDeptIds.includes(departmentId) ? [departmentId] : allowedDeptIds;
-    where.departmentId = { in: effectiveDeptIds };
+  if (!picker) {
+    if (allowedDeptIds !== null) {
+      // Non-admin: restrict to their own departments
+      const effectiveDeptIds =
+        departmentId && allowedDeptIds.includes(departmentId) ? [departmentId] : allowedDeptIds;
+      where.departmentId = { in: effectiveDeptIds };
+    } else if (departmentId) {
+      where.departmentId = departmentId;
+    }
   } else if (departmentId) {
     where.departmentId = departmentId;
   }

@@ -130,13 +130,13 @@ export function DocEditor({ doc }: DocEditorProps) {
   }, [showLinkPicker]);
 
   const fetchCampaigns = async () => {
-    const res = await fetch("/api/campaigns");
+    const res = await fetch("/api/campaigns?picker=1");
     const data = await res.json();
     setCampaigns((data.data || []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
   };
 
   const fetchTasks = async () => {
-    const res = await fetch("/api/tasks");
+    const res = await fetch("/api/tasks?picker=1");
     const data = await res.json();
     setTasks((data.data || []).map((t: { id: string; title: string }) => ({ id: t.id, title: t.title })));
   };

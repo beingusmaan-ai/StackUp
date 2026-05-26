@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search");
   const tab = searchParams.get("tab"); // "incoming" | "outgoing"
   const teamId = searchParams.get("teamId"); // active team context
+  const picker = searchParams.get("picker") === "1";
 
   // Resolve caller's real DB user ID
   const isGlobalAdmin = session.user.role === "ADMIN";
@@ -90,7 +91,7 @@ export async function GET(req: NextRequest) {
     } else {
       return NextResponse.json({ data: [] });
     }
-  } else if (!isGlobalAdmin && !teamId) {
+  } else if (!isGlobalAdmin && !teamId && !picker) {
     // Non-admin with no team filter: scope to tasks in their departments or assigned to them
     if (callerDeptIds.length > 0) {
       where.OR = [
