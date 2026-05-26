@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Megaphone, CalendarDays,
   Users, BarChart3, Bell, Settings, LogOut,
   ChevronLeft, ChevronRight, Plus,
-  Clock, BarChart2, ChevronDown, Layers, TrendingUp, AlertTriangle, CheckSquare, MessageSquare, AtSign,
+  Clock, BarChart2, ChevronDown, Layers, TrendingUp, AlertTriangle, CheckSquare, MessageSquare, AtSign, BookOpen,
 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
 import { useEffect, useRef, useState } from "react";
@@ -26,6 +26,7 @@ const NAV_GROUPS = [
       { href: "/dashboard",          label: "Dashboard",     icon: LayoutDashboard },
       { href: "/messages",           label: "Messages",      icon: MessageSquare },
       { href: "/assigned-comments",  label: "Comments",      icon: AtSign },
+      { href: "/docs",               label: "Docs",          icon: BookOpen },
       { href: "/campaigns",          label: "Projects",      icon: Megaphone, hasProjectsSub: true },
       { href: "/tasks",         label: "Tasks",         icon: CheckSquare },
       { href: "/calendar",      label: "Calendar",      icon: CalendarDays },

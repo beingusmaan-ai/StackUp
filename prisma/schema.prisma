@@ -40,6 +40,7 @@ model User {
   workspaceMemberships  WorkspaceMember[]
   conversationMembers   ConversationMember[]
   sentMessages          Message[]
+  createdDocs           Doc[]                @relation("DocCreator")
 
   @@map("users")
 }
@@ -597,4 +598,23 @@ model TaskChecklist {
 
   @@index([taskId])
   @@map("task_checklists")
+}
+
+model Doc {
+  id          String   @id @default(cuid())
+  title       String   @default("Untitled")
+  content     Json?
+  icon        String?
+  parentId    String?
+  createdById String
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User  @relation("DocCreator", fields: [createdById], references: [id])
+  parent    Doc?  @relation("DocChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Doc[] @relation("DocChildren")
+
+  @@index([parentId])
+  @@map("docs")
 }

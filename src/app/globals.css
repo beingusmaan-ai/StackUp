@@ -103,3 +103,30 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground));
 }
+
+/* ── TipTap Doc Editor ── */
+.doc-editor-content { line-height: 1.7; color: hsl(var(--foreground)); }
+.doc-editor-content h1 { font-size: 2rem; font-weight: 700; margin: 1.5rem 0 0.5rem; }
+.doc-editor-content h2 { font-size: 1.5rem; font-weight: 600; margin: 1.25rem 0 0.4rem; }
+.doc-editor-content h3 { font-size: 1.2rem; font-weight: 600; margin: 1rem 0 0.3rem; }
+.doc-editor-content p { margin: 0.5rem 0; }
+.doc-editor-content ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
+.doc-editor-content ol { list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
+.doc-editor-content li { margin: 0.25rem 0; }
+.doc-editor-content blockquote { border-left: 3px solid hsl(var(--border)); padding-left: 1rem; color: hsl(var(--muted-foreground)); margin: 0.75rem 0; font-style: italic; }
+.doc-editor-content code { background: hsl(var(--muted)); padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.875em; font-family: var(--font-mono); }
+.doc-editor-content pre { background: hsl(var(--muted)); padding: 1rem; border-radius: 10px; overflow-x: auto; margin: 0.75rem 0; }
+.doc-editor-content pre code { background: none; padding: 0; }
+.doc-editor-content hr { border: none; border-top: 1px solid hsl(var(--border)); margin: 1.5rem 0; }
+.doc-editor-content a { color: #4169e1; text-decoration: underline; }
+.doc-editor-content mark { background: #fef08a; border-radius: 3px; padding: 0.05em 0.2em; }
+.doc-editor-content strong { font-weight: 700; }
+.doc-editor-content em { font-style: italic; }
+.doc-editor-content s { text-decoration: line-through; }
+/* Task list */
+.doc-editor-content ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+.doc-editor-content ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 0.5rem; margin: 0.2rem 0; }
+.doc-editor-content ul[data-type="taskList"] li input[type="checkbox"] { margin-top: 0.25rem; accent-color: #e8170b; flex-shrink: 0; width: 15px; height: 15px; cursor: pointer; }
+.doc-editor-content ul[data-type="taskList"] li p { margin: 0; }
+/* Placeholder */
+.doc-editor-content p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: hsl(var(--muted-foreground)); opacity: 0.5; pointer-events: none; height: 0; float: left; }
