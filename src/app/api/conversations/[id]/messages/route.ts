@@ -28,7 +28,19 @@ export async function GET(
   if (!isMember) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
-  const cursor = searchParams.get("cursor");
+  const cursor = searchParams.get("cursor"); // for loading older messages (scroll up)
+  const after = searchParams.get("after");   // for polling new messages
+
+  // Polling: return only messages newer than `after` message id
+  if (after) {
+    const pivot = await db.message.findUnique({ where: { id: after }, select: { createdAt: true } });
+    const newMessages = pivot ? await db.message.findMany({
+      where: { conversationId: id, createdAt: { gt: pivot.createdAt } },
+      include: { sender: { select: { id: true, name: true, image: true } } },
+      orderBy: { createdAt: "asc" },
+    }) : [];
+    return NextResponse.json({ data: newMessages });
+  }
 
   const messages = await db.message.findMany({
     where: { conversationId: id },

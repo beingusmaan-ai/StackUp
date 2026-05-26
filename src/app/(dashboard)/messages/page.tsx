@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { cn, getInitials } from "@/lib/utils";
 import { Send, Plus, Search, Users, MessageSquare, X, Check } from "lucide-react";
-import PusherJs from "pusher-js";
 
 interface UserInfo { id: string; name: string; image: string | null; marketingRole?: string | null; }
 interface Message { id: string; conversationId: string; senderId: string; content: string; createdAt: string; sender: { id: string; name: string; image: string | null }; }
@@ -50,13 +49,14 @@ export default function MessagesPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
-  const pusherRef = useRef<PusherJs | null>(null);
+  const pusherRef = useRef<null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const activeConvIdRef = useRef<string | null>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const myId = session?.user?.id ?? "";
 
-  // Keep ref in sync so Pusher callbacks always see the latest value
   useEffect(() => { activeConvIdRef.current = activeConvId; }, [activeConvId]);
 
   const loadConversations = useCallback(async () => {
@@ -71,53 +71,56 @@ export default function MessagesPage() {
     fetch("/api/users").then((r) => r.json()).then((d) => setAllUsers(d.data ?? []));
   }, []);
 
-  // Subscribe to ALL conversations via Pusher — one connection, many channels
+  // Poll for new messages in the active conversation every 2.5s
   useEffect(() => {
-    if (!conversations.length || !process.env.NEXT_PUBLIC_PUSHER_KEY) return;
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    if (!activeConvId) return;
 
-    if (!pusherRef.current) {
-      pusherRef.current = new PusherJs(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-        cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-      });
-    }
-
-    const pusher = pusherRef.current;
-
-    conversations.forEach((conv) => {
-      const channelName = `conversation-${conv.id}`;
-      if (pusher.channel(channelName)) return; // already subscribed
-
-      const channel = pusher.subscribe(channelName);
-      channel.bind("new-message", (msg: Message) => {
-        const isActive = msg.conversationId === activeConvIdRef.current;
-        if (isActive) {
-          setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
+    async function poll() {
+      const convId = activeConvIdRef.current;
+      if (!convId) return;
+      const lastId = lastMessageIdRef.current;
+      if (!lastId) return;
+      try {
+        const res = await fetch(`/api/conversations/${convId}/messages?after=${lastId}`);
+        const data = await res.json();
+        const newMsgs: Message[] = data.data ?? [];
+        if (!newMsgs.length) return;
+        lastMessageIdRef.current = newMsgs[newMsgs.length - 1].id;
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const fresh = newMsgs.filter((m) => !existingIds.has(m.id));
+          if (!fresh.length) return prev;
           setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-        }
+          return [...prev, ...fresh];
+        });
+        // Update conversation list preview + unread for OTHER conversations
         setConversations((prev) =>
-          prev.map((c) => c.id === msg.conversationId
-            ? { ...c, messages: [msg], updatedAt: msg.createdAt, unread: isActive ? 0 : c.unread + 1 }
+          prev.map((c) => c.id === convId
+            ? { ...c, messages: [newMsgs[newMsgs.length - 1]], updatedAt: newMsgs[newMsgs.length - 1].createdAt }
             : c
           ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
         );
-      });
-    });
+      } catch { /* silent */ }
+    }
 
-    return () => { pusherRef.current?.disconnect(); pusherRef.current = null; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations.length]);
+    pollTimerRef.current = setInterval(poll, 2500);
+    return () => { if (pollTimerRef.current) clearInterval(pollTimerRef.current); };
+  }, [activeConvId]);
 
   // Load messages when conversation selected
   useEffect(() => {
     if (!activeConvId) return;
     setMessages([]);
     setHasMore(false);
+    lastMessageIdRef.current = null;
     fetch(`/api/conversations/${activeConvId}/messages`)
       .then((r) => r.json())
       .then((d) => {
         const fetched: Message[] = d.data ?? [];
         setMessages(fetched);
         setHasMore(fetched.length === 50);
+        if (fetched.length) lastMessageIdRef.current = fetched[fetched.length - 1].id;
         setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, unread: 0 } : c));
       });
   }, [activeConvId]);
@@ -178,6 +181,7 @@ export default function MessagesPage() {
       const data = await res.json();
       // Replace optimistic message with real one from server
       if (data.data) {
+        lastMessageIdRef.current = data.data.id;
         setMessages((prev) => prev.map((m) => m.id === optimisticId ? data.data : m));
       }
     } catch {
