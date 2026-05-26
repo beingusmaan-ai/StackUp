@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import {
   FilePlus, Search, Globe, Lock, MoreHorizontal, Trash2,
   ChevronDown, FileText, Users, Megaphone, CheckSquare,
+  Pencil, Copy, Link2, FolderInput, X,
 } from "lucide-react";
 import { cn, formatRelative } from "@/lib/utils";
 import { UserAvatar } from "@/components/shared/UserAvatar";
@@ -112,6 +113,11 @@ export default function DocsPage() {
   const [search, setSearch] = useState("");
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [showNewMenu, setShowNewMenu] = useState(false);
+  const [showMoveModal, setShowMoveModal] = useState<{ id: string; title: string } | null>(null);
+  const [moveCampaigns, setMoveCampaigns] = useState<{ id: string; name: string }[]>([]);
+  const [moveTasks, setMoveTasks] = useState<{ id: string; title: string }[]>([]);
+  const [moveTab, setMoveTab] = useState<"campaign" | "task">("campaign");
+  const [moveSearch, setMoveSearch] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["docs"],
@@ -146,6 +152,68 @@ export default function DocsPage() {
     },
     onError: () => toast.error("Failed to delete"),
   });
+
+  const renameDoc = useMutation({
+    mutationFn: async ({ id, title }: { id: string; title: string }) => {
+      await fetch(`/api/docs/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["docs"] }),
+    onError: () => toast.error("Failed to rename"),
+  });
+
+  const duplicateDoc = useMutation({
+    mutationFn: async (doc: Doc) => {
+      const full = await fetch(`/api/docs/${doc.id}`).then((r) => r.json());
+      const res = await fetch("/api/docs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `${doc.title} (Copy)`,
+          icon: doc.icon,
+          content: full.data?.content,
+        }),
+      });
+      return res.json();
+    },
+    onSuccess: ({ data: newDoc }) => {
+      queryClient.invalidateQueries({ queryKey: ["docs"] });
+      toast.success("Doc duplicated");
+      router.push(`/docs/${newDoc.id}`);
+    },
+    onError: () => toast.error("Failed to duplicate"),
+  });
+
+  const moveDoc = useMutation({
+    mutationFn: async ({ id, campaignId, taskId }: { id: string; campaignId?: string; taskId?: string }) => {
+      await fetch(`/api/docs/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: campaignId ?? "", taskId: taskId ?? "" }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["docs"] });
+      toast.success("Doc moved");
+      setShowMoveModal(null);
+    },
+    onError: () => toast.error("Failed to move"),
+  });
+
+  const openMoveModal = (doc: Doc) => {
+    setShowMoveModal({ id: doc.id, title: doc.title });
+    setMoveTab("campaign");
+    setMoveSearch("");
+    fetch("/api/campaigns?picker=1").then((r) => r.json()).then((d) =>
+      setMoveCampaigns((d.data || []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })))
+    );
+    fetch("/api/tasks?picker=1").then((r) => r.json()).then((d) =>
+      setMoveTasks((d.data || []).map((t: { id: string; title: string }) => ({ id: t.id, title: t.title })))
+    );
+  };
 
   const childCount = (id: string) => docs.filter((d) => d.parentId === id).length;
   const rootDocs = docs.filter((d) => !d.parentId);
@@ -347,20 +415,57 @@ export default function DocsPage() {
                         <MoreHorizontal className="w-4 h-4" />
                       </button>
                       {menuOpenId === doc.id && (
-                        <div className="absolute right-0 top-full mt-1 w-36 bg-background border border-border rounded-xl shadow-lg z-20 py-1 overflow-hidden">
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-background border border-border rounded-xl shadow-lg z-20 py-1 overflow-hidden">
                           <button
                             onClick={() => { router.push(`/docs/${doc.id}`); setMenuOpenId(null); }}
                             className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
                           >
-                            <FileText className="w-3.5 h-3.5" /> Open
+                            <FileText className="w-3.5 h-3.5 text-muted-foreground" /> Open
+                          </button>
+                          <button
+                            onClick={() => {
+                              const newTitle = window.prompt("Rename doc:", doc.title);
+                              if (newTitle && newTitle.trim() && newTitle !== doc.title) {
+                                renameDoc.mutate({ id: doc.id, title: newTitle.trim() });
+                              }
+                              setMenuOpenId(null);
+                            }}
+                            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5 text-muted-foreground" /> Rename
+                          </button>
+                          <button
+                            onClick={() => { openMoveModal(doc); setMenuOpenId(null); }}
+                            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                          >
+                            <FolderInput className="w-3.5 h-3.5 text-muted-foreground" /> Move to Project/Task
+                          </button>
+                          <button
+                            onClick={() => { duplicateDoc.mutate(doc); setMenuOpenId(null); }}
+                            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                          >
+                            <Copy className="w-3.5 h-3.5 text-muted-foreground" /> Duplicate
+                          </button>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/docs/${doc.id}`);
+                              toast.success("Link copied");
+                              setMenuOpenId(null);
+                            }}
+                            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                          >
+                            <Link2 className="w-3.5 h-3.5 text-muted-foreground" /> Copy Link
                           </button>
                           {isOwn && (
-                            <button
-                              onClick={() => { if (confirm("Delete this doc?")) { deleteDoc.mutate(doc.id); setMenuOpenId(null); } }}
-                              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" /> Delete
-                            </button>
+                            <>
+                              <div className="my-1 border-t border-border" />
+                              <button
+                                onClick={() => { if (confirm("Delete this doc?")) { deleteDoc.mutate(doc.id); setMenuOpenId(null); } }}
+                                className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" /> Delete
+                              </button>
+                            </>
                           )}
                         </div>
                       )}
@@ -372,6 +477,89 @@ export default function DocsPage() {
           </div>
         )}
       </div>
+
+      {/* Move to Project/Task modal */}
+      {showMoveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowMoveModal(null)}>
+          <div className="bg-background border border-border rounded-2xl shadow-2xl w-80 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <p className="text-sm font-semibold text-foreground truncate pr-2">Move "{showMoveModal.title}"</p>
+              <button onClick={() => setShowMoveModal(null)} className="text-muted-foreground hover:text-foreground flex-shrink-0">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-border">
+              <button
+                onClick={() => { setMoveTab("campaign"); setMoveSearch(""); }}
+                className={cn("flex-1 px-3 py-2 text-xs font-medium transition-colors flex items-center justify-center gap-1.5",
+                  moveTab === "campaign" ? "text-[#e8170b] border-b-2 border-[#e8170b]" : "text-muted-foreground hover:text-foreground")}
+              >
+                <Megaphone className="w-3.5 h-3.5" /> Projects
+              </button>
+              <button
+                onClick={() => { setMoveTab("task"); setMoveSearch(""); }}
+                className={cn("flex-1 px-3 py-2 text-xs font-medium transition-colors flex items-center justify-center gap-1.5",
+                  moveTab === "task" ? "text-[#e8170b] border-b-2 border-[#e8170b]" : "text-muted-foreground hover:text-foreground")}
+              >
+                <CheckSquare className="w-3.5 h-3.5" /> Tasks
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="p-2">
+              <input
+                value={moveSearch}
+                onChange={(e) => setMoveSearch(e.target.value)}
+                placeholder={`Search ${moveTab === "campaign" ? "projects" : "tasks"}…`}
+                className="w-full px-3 py-1.5 text-xs bg-muted rounded-lg outline-none"
+                autoFocus
+              />
+            </div>
+
+            {/* List */}
+            <div className="max-h-52 overflow-y-auto pb-2">
+              {moveTab === "campaign"
+                ? moveCampaigns
+                    .filter((c) => c.name.toLowerCase().includes(moveSearch.toLowerCase()))
+                    .map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => moveDoc.mutate({ id: showMoveModal.id, campaignId: c.id, taskId: "" })}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-muted transition-colors text-left"
+                      >
+                        <Megaphone className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+                        {c.name}
+                      </button>
+                    ))
+                : moveTasks
+                    .filter((t) => t.title.toLowerCase().includes(moveSearch.toLowerCase()))
+                    .map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => moveDoc.mutate({ id: showMoveModal.id, taskId: t.id, campaignId: "" })}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-muted transition-colors text-left"
+                      >
+                        <CheckSquare className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                        {t.title}
+                      </button>
+                    ))
+              }
+            </div>
+
+            {/* Remove link footer */}
+            <div className="border-t border-border p-2">
+              <button
+                onClick={() => moveDoc.mutate({ id: showMoveModal.id, campaignId: "", taskId: "" })}
+                className="w-full text-xs text-muted-foreground hover:text-foreground hover:bg-muted px-3 py-1.5 rounded-lg transition-colors text-left"
+              >
+                Remove link
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
