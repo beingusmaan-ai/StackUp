@@ -385,7 +385,7 @@ export default function MessagesPage() {
                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
                         {isMe && (
-                          <span className={cn("text-[10px]", isRead ? "text-[#e8170b]" : "text-muted-foreground")} title={isRead ? `Read by ${readers.map(r => r.user.name).join(", ")}` : isDelivered ? "Delivered" : "Sending…"}>
+                          <span className={cn("text-[10px]", isRead ? "text-blue-500" : "text-muted-foreground")} title={isRead ? `Read by ${readers.map(r => r.user.name).join(", ")}` : isDelivered ? "Delivered" : "Sending…"}>
                             {isOptimistic ? "✓" : isRead ? "✓✓" : "✓✓"}
                           </span>
                         )}
