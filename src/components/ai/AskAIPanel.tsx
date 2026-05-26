@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Sparkles, Send, User, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUIStore } from "@/store/ui-store";
 
 interface Message {
   role: "user" | "assistant";
@@ -40,6 +41,7 @@ export function AskAIPanel({ open, onClose, initialQuestion }: AskAIPanelProps) 
   const inputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const didInit = useRef(false);
+  const { activeTeamId } = useUIStore();
 
   useEffect(() => {
     if (open) {
@@ -72,7 +74,7 @@ export function AskAIPanel({ open, onClose, initialQuestion }: AskAIPanelProps) 
       const res = await fetch("/api/ai/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, history }),
+        body: JSON.stringify({ question, history, teamId: activeTeamId }),
       });
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", content: data.answer || data.error || "Something went wrong." }]);
