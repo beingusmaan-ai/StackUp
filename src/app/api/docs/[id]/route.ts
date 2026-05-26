@@ -18,12 +18,23 @@ export async function GET(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const doc = await db.doc.findUnique({
-    where: { id },
-    include: { createdBy: { select: { id: true, name: true } } },
+  const userId = await getDbUserId(session);
+
+  const doc = await db.doc.findFirst({
+    where: {
+      id,
+      OR: [
+        { createdById: userId },
+        { shares: { some: { userId } } },
+      ],
+    },
+    include: {
+      createdBy: { select: { id: true, name: true } },
+      shares: { select: { userId: true, role: true } },
+    },
   });
 
-  if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!doc) return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
   return NextResponse.json({ data: doc });
 }
 
@@ -35,8 +46,22 @@ export async function PATCH(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  const userId = await getDbUserId(session);
   const body = await req.json();
-  const { title, content, icon, parentId } = body;
+  const { title, content, icon, parentId, isPublic } = body;
+
+  // Check access: must be owner or have EDITOR share
+  const access = await db.doc.findFirst({
+    where: {
+      id,
+      OR: [
+        { createdById: userId },
+        { shares: { some: { userId, role: "EDITOR" } } },
+      ],
+    },
+    select: { id: true },
+  });
+  if (!access) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const doc = await db.doc.update({
     where: { id },
@@ -45,6 +70,7 @@ export async function PATCH(
       ...(content !== undefined && { content }),
       ...(icon !== undefined && { icon }),
       ...(parentId !== undefined && { parentId }),
+      ...(isPublic !== undefined && { isPublic }),
     },
     select: {
       id: true, title: true, icon: true, parentId: true,

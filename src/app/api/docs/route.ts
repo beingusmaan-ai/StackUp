@@ -14,7 +14,15 @@ export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const userId = await getDbUserId(session);
+
   const docs = await db.doc.findMany({
+    where: {
+      OR: [
+        { createdById: userId },
+        { shares: { some: { userId } } },
+      ],
+    },
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,
