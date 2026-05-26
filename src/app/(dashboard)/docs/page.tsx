@@ -321,13 +321,14 @@ export default function DocsPage() {
       </div>
 
       {/* Docs table */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl">
         {/* Table header */}
-        <div className="grid grid-cols-[1fr_160px_140px_120px] gap-4 px-4 py-2.5 border-b border-border bg-muted/40">
+        <div className="grid grid-cols-[1fr_160px_140px_110px_36px] gap-4 px-4 py-2.5 border-b border-border bg-muted/40 rounded-t-2xl">
           <span className="text-xs font-semibold text-muted-foreground">Name</span>
           <span className="text-xs font-semibold text-muted-foreground">Location</span>
           <span className="text-xs font-semibold text-muted-foreground">Date updated</span>
           <span className="text-xs font-semibold text-muted-foreground">Sharing</span>
+          <span />
         </div>
 
         {isLoading ? (
@@ -359,7 +360,7 @@ export default function DocsPage() {
                 <div
                   key={doc.id}
                   onClick={() => router.push(`/docs/${doc.id}`)}
-                  className="grid grid-cols-[1fr_160px_140px_120px] gap-4 px-4 py-3 hover:bg-muted/30 cursor-pointer transition-colors group relative items-center"
+                  className="grid grid-cols-[1fr_160px_140px_110px_36px] gap-4 px-4 py-3 hover:bg-muted/30 cursor-pointer transition-colors group relative items-center"
                 >
                   {/* Name */}
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -393,7 +394,7 @@ export default function DocsPage() {
                   <span className="text-xs text-muted-foreground">{formatRelative(doc.updatedAt)}</span>
 
                   {/* Sharing */}
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => setShareDoc(doc)}
                       className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-muted transition-colors group/share"
@@ -408,71 +409,71 @@ export default function DocsPage() {
                         {doc.isPublic ? "Public" : "Share"}
                       </span>
                     </button>
+                  </div>
 
-                    {/* ⋯ menu */}
-                    <div className="relative ml-auto opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => setMenuOpenId(menuOpenId === doc.id ? null : doc.id)}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted transition-colors text-muted-foreground"
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                      {menuOpenId === doc.id && (
-                        <div className="absolute right-0 top-full mt-1 w-48 bg-background border border-border rounded-xl shadow-lg z-20 py-1 overflow-hidden">
-                          <button
-                            onClick={() => { router.push(`/docs/${doc.id}`); setMenuOpenId(null); }}
-                            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
-                          >
-                            <FileText className="w-3.5 h-3.5 text-muted-foreground" /> Open
-                          </button>
-                          <button
-                            onClick={() => {
-                              const newTitle = window.prompt("Rename doc:", doc.title);
-                              if (newTitle && newTitle.trim() && newTitle !== doc.title) {
-                                renameDoc.mutate({ id: doc.id, title: newTitle.trim() });
-                              }
-                              setMenuOpenId(null);
-                            }}
-                            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
-                          >
-                            <Pencil className="w-3.5 h-3.5 text-muted-foreground" /> Rename
-                          </button>
-                          <button
-                            onClick={() => { openMoveModal(doc); setMenuOpenId(null); }}
-                            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
-                          >
-                            <FolderInput className="w-3.5 h-3.5 text-muted-foreground" /> Move to Project/Task
-                          </button>
-                          <button
-                            onClick={() => { duplicateDoc.mutate(doc); setMenuOpenId(null); }}
-                            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
-                          >
-                            <Copy className="w-3.5 h-3.5 text-muted-foreground" /> Duplicate
-                          </button>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(`${window.location.origin}/docs/${doc.id}`);
-                              toast.success("Link copied");
-                              setMenuOpenId(null);
-                            }}
-                            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
-                          >
-                            <Link2 className="w-3.5 h-3.5 text-muted-foreground" /> Copy Link
-                          </button>
-                          {isOwn && (
-                            <>
-                              <div className="my-1 border-t border-border" />
-                              <button
-                                onClick={() => { if (confirm("Delete this doc?")) { deleteDoc.mutate(doc.id); setMenuOpenId(null); } }}
-                                className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" /> Delete
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                  {/* ⋯ menu — own column */}
+                  <div className="relative flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => setMenuOpenId(menuOpenId === doc.id ? null : doc.id)}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted transition-colors text-muted-foreground opacity-0 group-hover:opacity-100"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+                    {menuOpenId === doc.id && (
+                      <div className="absolute right-0 top-full mt-1 w-48 bg-background border border-border rounded-xl shadow-xl z-50 py-1">
+                        <button
+                          onClick={() => { router.push(`/docs/${doc.id}`); setMenuOpenId(null); }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-muted-foreground" /> Open
+                        </button>
+                        <button
+                          onClick={() => {
+                            const newTitle = window.prompt("Rename doc:", doc.title);
+                            if (newTitle && newTitle.trim() && newTitle !== doc.title) {
+                              renameDoc.mutate({ id: doc.id, title: newTitle.trim() });
+                            }
+                            setMenuOpenId(null);
+                          }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                        >
+                          <Pencil className="w-3.5 h-3.5 text-muted-foreground" /> Rename
+                        </button>
+                        <button
+                          onClick={() => { openMoveModal(doc); setMenuOpenId(null); }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                        >
+                          <FolderInput className="w-3.5 h-3.5 text-muted-foreground" /> Move to Project/Task
+                        </button>
+                        <button
+                          onClick={() => { duplicateDoc.mutate(doc); setMenuOpenId(null); }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                        >
+                          <Copy className="w-3.5 h-3.5 text-muted-foreground" /> Duplicate
+                        </button>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/docs/${doc.id}`);
+                            toast.success("Link copied");
+                            setMenuOpenId(null);
+                          }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                        >
+                          <Link2 className="w-3.5 h-3.5 text-muted-foreground" /> Copy Link
+                        </button>
+                        {isOwn && (
+                          <>
+                            <div className="my-1 border-t border-border" />
+                            <button
+                              onClick={() => { if (confirm("Delete this doc?")) { deleteDoc.mutate(doc.id); setMenuOpenId(null); } }}
+                              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" /> Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
