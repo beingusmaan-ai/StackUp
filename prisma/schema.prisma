@@ -284,12 +284,16 @@ model TaskComment {
   taskId    String
   authorId  String
   content   String
+  parentId  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  author User @relation(fields: [authorId], references: [id])
+  task    Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author  User          @relation(fields: [authorId], references: [id])
+  parent  TaskComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies TaskComment[] @relation("CommentReplies")
 
+  @@index([taskId, createdAt])
   @@map("task_comments")
 }
 

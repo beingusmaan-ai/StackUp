@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { X, Send, CheckCircle, RotateCcw, ChevronDown, Calendar, Paperclip, FileText, Download, XCircle, Cloud, Trash2, Pencil } from "lucide-react";
+import { X, Send, CheckCircle, RotateCcw, ChevronDown, Calendar, Paperclip, FileText, Download, XCircle, Cloud, Trash2, Pencil, Reply, ChevronRight } from "lucide-react";
 import { CloudFilePicker } from "@/components/tasks/CloudFilePicker";
 import { HoursEditor } from "@/components/tasks/HoursEditor";
 import { LogTimeModal } from "@/components/tasks/LogTimeModal";
 import { TaskForm } from "@/components/tasks/TaskForm";
 import { StatusBadge, PriorityBadge } from "@/components/shared/StatusBadge";
 import { UserAvatar, AvatarGroup } from "@/components/shared/UserAvatar";
-import { formatDate, formatRelative } from "@/lib/utils";
+import { cn, formatDate, formatRelative } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 
@@ -24,6 +24,9 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
   const queryClient = useQueryClient();
   const [comment, setComment] = useState("");
   const [activeTab, setActiveTab] = useState<"details" | "comments" | "activity">("details");
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState("");
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const [approvalMessage, setApprovalMessage] = useState("");
   const [showApprovalInput, setShowApprovalInput] = useState(false);
   const [rejectionNote, setRejectionNote] = useState("");
@@ -71,6 +74,37 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
       onUpdate();
     },
     onError: () => toast.error("Failed to post comment"),
+  });
+
+  const replyMutation = useMutation({
+    mutationFn: async ({ parentId, content }: { parentId: string; content: string }) => {
+      const res = await fetch(`/api/tasks/${taskId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, parentId }),
+      });
+      if (!res.ok) throw new Error();
+    },
+    onSuccess: (_data, { parentId }) => {
+      setReplyingTo(null);
+      setReplyContent("");
+      setExpandedThreads((prev) => new Set(prev).add(parentId));
+      queryClient.invalidateQueries({ queryKey: ["task", taskId] });
+      onUpdate();
+    },
+    onError: () => toast.error("Failed to post reply"),
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId: string) => {
+      const res = await fetch(`/api/comments/${commentId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["task", taskId] });
+      onUpdate();
+    },
+    onError: () => toast.error("Failed to delete comment"),
   });
 
   const approvalMutation = useMutation({
@@ -401,45 +435,152 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
           </div>
 
           {/* Tab Content */}
-          {activeTab === "comments" && (
-            <div className="space-y-4">
-              {task.comments?.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-6">No comments yet. Be the first!</p>
-              )}
-              {task.comments?.map((c: { id: string; content: string; createdAt: string; author: { name: string; image?: string | null } }) => (
-                <div key={c.id} className="flex gap-3">
-                  <UserAvatar name={c.author.name} image={c.author.image} size="sm" />
-                  <div className="flex-1">
+          {activeTab === "comments" && (() => {
+            type CommentType = {
+              id: string;
+              content: string;
+              createdAt: string;
+              author: { id: string; name: string; image?: string | null };
+              replies?: CommentType[];
+            };
+
+            const renderComment = (c: CommentType, isReply = false) => {
+              const isOwn = c.author.id === session?.user.id;
+              const hasReplies = (c.replies?.length ?? 0) > 0;
+              const isExpanded = expandedThreads.has(c.id);
+              const isReplyingToThis = replyingTo === c.id;
+
+              return (
+                <div key={c.id} className={cn("group", isReply ? "flex gap-2.5" : "flex gap-3")}>
+                  <div className="flex flex-col items-center gap-0">
+                    <UserAvatar name={c.author.name} image={c.author.image} size={isReply ? "xs" : "sm"} />
+                    {hasReplies && isExpanded && !isReply && (
+                      <div className="w-px flex-1 bg-border mt-1 min-h-[16px]" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0 pb-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{c.author.name}</span>
+                      <span className={cn("font-semibold", isReply ? "text-xs" : "text-sm")}>{c.author.name}</span>
                       <span className="text-xs text-muted-foreground">{formatRelative(c.createdAt)}</span>
                     </div>
-                    <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">{c.content}</p>
+                    <p className={cn("text-foreground mt-0.5 whitespace-pre-wrap leading-relaxed", isReply ? "text-xs" : "text-sm")}>{c.content}</p>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-3 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {!isReply && (
+                        <button
+                          onClick={() => { setReplyingTo(isReplyingToThis ? null : c.id); setReplyContent(""); }}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-[#e8170b] transition-colors"
+                        >
+                          <Reply className="w-3 h-3" />
+                          Reply
+                        </button>
+                      )}
+                      {hasReplies && !isReply && (
+                        <button
+                          onClick={() => setExpandedThreads((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                            return next;
+                          })}
+                          className="flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-600 transition-colors"
+                        >
+                          <ChevronRight className={cn("w-3 h-3 transition-transform", isExpanded && "rotate-90")} />
+                          {isExpanded ? "Hide replies" : `${c.replies!.length} ${c.replies!.length === 1 ? "reply" : "replies"}`}
+                        </button>
+                      )}
+                      {isOwn && (
+                        <button
+                          onClick={() => { if (confirm("Delete this comment?")) deleteCommentMutation.mutate(c.id); }}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          Delete
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Inline reply input */}
+                    {isReplyingToThis && (
+                      <div className="flex gap-2 mt-2.5">
+                        <UserAvatar name={session?.user.name || "U"} size="xs" />
+                        <div className="flex-1 flex gap-2 items-end">
+                          <textarea
+                            value={replyContent}
+                            onChange={(e) => setReplyContent(e.target.value)}
+                            placeholder={`Reply to ${c.author.name}…`}
+                            rows={2}
+                            autoFocus
+                            className="flex-1 px-3 py-2 rounded-xl border border-border bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-[#e8170b] resize-none"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey && replyContent.trim()) {
+                                e.preventDefault();
+                                replyMutation.mutate({ parentId: c.id, content: replyContent });
+                              }
+                              if (e.key === "Escape") { setReplyingTo(null); setReplyContent(""); }
+                            }}
+                          />
+                          <div className="flex flex-col gap-1">
+                            <button
+                              onClick={() => replyContent.trim() && replyMutation.mutate({ parentId: c.id, content: replyContent })}
+                              disabled={!replyContent.trim() || replyMutation.isPending}
+                              className="p-1.5 rounded-lg bg-[#e8170b] hover:bg-[#c91409] disabled:opacity-50 text-white transition-colors"
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => { setReplyingTo(null); setReplyContent(""); }}
+                              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Replies thread */}
+                    {hasReplies && isExpanded && (
+                      <div className="mt-3 space-y-3 border-l-2 border-muted pl-3">
+                        {c.replies!.map((reply) => renderComment(reply, true))}
+                      </div>
+                    )}
                   </div>
                 </div>
-              ))}
-              <div className="flex gap-3 mt-4 sticky bottom-0 bg-background pt-2">
-                <UserAvatar name={session?.user.name || "U"} size="sm" />
-                <div className="flex-1 flex items-end gap-2">
-                  <textarea
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    placeholder="Write a comment..."
-                    rows={2}
-                    className="flex-1 px-3 py-2 rounded-xl border border-border bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-[#e8170b] resize-none"
-                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && comment.trim()) { e.preventDefault(); commentMutation.mutate(comment); } }}
-                  />
-                  <button
-                    onClick={() => comment.trim() && commentMutation.mutate(comment)}
-                    disabled={!comment.trim() || commentMutation.isPending}
-                    className="p-2 rounded-xl bg-[#e8170b] hover:bg-[#c91409] disabled:opacity-50 text-white transition-colors"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
+              );
+            };
+
+            return (
+              <div className="space-y-4">
+                {(!task.comments || task.comments.length === 0) && (
+                  <p className="text-sm text-muted-foreground text-center py-8">No comments yet. Be the first!</p>
+                )}
+                {task.comments?.map((c: CommentType) => renderComment(c))}
+
+                {/* New comment input */}
+                <div className="flex gap-3 mt-4 sticky bottom-0 bg-background pt-2 border-t border-border">
+                  <UserAvatar name={session?.user.name || "U"} size="sm" />
+                  <div className="flex-1 flex items-end gap-2">
+                    <textarea
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      placeholder="Write a comment… (Enter to send, Shift+Enter for new line)"
+                      rows={2}
+                      className="flex-1 px-3 py-2 rounded-xl border border-border bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-[#e8170b] resize-none"
+                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && comment.trim()) { e.preventDefault(); commentMutation.mutate(comment); } }}
+                    />
+                    <button
+                      onClick={() => comment.trim() && commentMutation.mutate(comment)}
+                      disabled={!comment.trim() || commentMutation.isPending}
+                      className="p-2 rounded-xl bg-[#e8170b] hover:bg-[#c91409] disabled:opacity-50 text-white transition-colors"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {activeTab === "activity" && (
             <div className="space-y-3">

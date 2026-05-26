@@ -36,7 +36,14 @@ export async function GET(
     include: {
       assignees: { include: { user: { select: { id: true, name: true, image: true, marketingRole: true } } } },
       comments: {
-        include: { author: { select: { id: true, name: true, image: true } } },
+        where: { parentId: null },
+        include: {
+          author: { select: { id: true, name: true, image: true } },
+          replies: {
+            include: { author: { select: { id: true, name: true, image: true } } },
+            orderBy: { createdAt: "asc" },
+          },
+        },
         orderBy: { createdAt: "asc" },
       },
       attachments: true,

@@ -27,12 +27,15 @@ export async function POST(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { taskId } = await params;
 
-  const { content } = await req.json();
+  const { content, parentId } = await req.json();
   if (!content?.trim()) return NextResponse.json({ error: "Content required" }, { status: 422 });
 
   const comment = await db.taskComment.create({
-    data: { taskId, authorId: session.user.id, content },
-    include: { author: { select: { id: true, name: true, image: true } } },
+    data: { taskId, authorId: session.user.id, content, parentId: parentId ?? null },
+    include: {
+      author: { select: { id: true, name: true, image: true } },
+      replies: { include: { author: { select: { id: true, name: true, image: true } } } },
+    },
   });
 
   await db.taskActivity.create({
