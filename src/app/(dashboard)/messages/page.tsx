@@ -46,7 +46,10 @@ export default function MessagesPage() {
   const [selectedUsers, setSelectedUsers] = useState<UserInfo[]>([]);
   const [groupName, setGroupName] = useState("");
   const [newType, setNewType] = useState<"DIRECT" | "GROUP">("DIRECT");
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
   const pusherRef = useRef<PusherJs | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -104,15 +107,44 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!activeConvId) return;
     setMessages([]);
+    setHasMore(false);
     fetch(`/api/conversations/${activeConvId}/messages`)
       .then((r) => r.json())
       .then((d) => {
-        setMessages(d.data ?? []);
+        const fetched: Message[] = d.data ?? [];
+        setMessages(fetched);
+        setHasMore(fetched.length === 50);
         setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, unread: 0 } : c));
       });
   }, [activeConvId]);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [activeConvId]);
+
+  async function loadOlderMessages() {
+    if (!activeConvId || loadingMore || !hasMore) return;
+    const oldest = messages[0];
+    if (!oldest) return;
+    setLoadingMore(true);
+    const container = threadRef.current;
+    const prevHeight = container?.scrollHeight ?? 0;
+    try {
+      const res = await fetch(`/api/conversations/${activeConvId}/messages?cursor=${oldest.id}`);
+      const d = await res.json();
+      const older: Message[] = d.data ?? [];
+      setMessages((prev) => [...older, ...prev]);
+      setHasMore(older.length === 50);
+      // Restore scroll position after prepend
+      requestAnimationFrame(() => {
+        if (container) container.scrollTop = container.scrollHeight - prevHeight;
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  function handleThreadScroll(e: React.UIEvent<HTMLDivElement>) {
+    if (e.currentTarget.scrollTop < 60) loadOlderMessages();
+  }
 
   async function sendMessage() {
     if (!input.trim() || !activeConvId || sending) return;
@@ -247,7 +279,15 @@ export default function MessagesPage() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+            <div ref={threadRef} onScroll={handleThreadScroll} className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              {loadingMore && (
+                <div className="flex justify-center py-2">
+                  <span className="text-[11px] text-muted-foreground animate-pulse">Loading older messages…</span>
+                </div>
+              )}
+              {!hasMore && messages.length > 0 && (
+                <p className="text-center text-[10px] text-muted-foreground py-2">Beginning of conversation</p>
+              )}
               {messages.map((msg, i) => {
                 const isMe = msg.senderId === myId;
                 const showAvatar = !isMe && (i === 0 || messages[i - 1].senderId !== msg.senderId);
