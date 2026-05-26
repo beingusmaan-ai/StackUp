@@ -19,25 +19,35 @@ export async function GET(req: NextRequest) {
   const tab = searchParams.get("tab") || "assigned";        // assigned | delegated
   const resolved = searchParams.get("resolved") === "true"; // include completed tasks
   const days = parseInt(searchParams.get("days") || "90", 10);
+  const sinceParam = searchParams.get("since");             // ISO date for unread count
+  const countOnly = searchParams.get("count") === "true";
 
-  const since = new Date();
-  since.setDate(since.getDate() - days);
+  const since = sinceParam ? new Date(sinceParam) : new Date();
+  if (!sinceParam) since.setDate(since.getDate() - days);
 
   const taskStatusFilter = resolved
     ? undefined
     : { status: { not: "COMPLETED" } };
 
-  const comments = await db.taskComment.findMany({
-    where: {
-      parentId: null, // top-level only
-      createdAt: { gte: since },
-      task: {
-        ...taskStatusFilter,
-        ...(tab === "assigned"
-          ? { assignees: { some: { userId } } }
-          : { createdById: userId }),
-      },
+  const baseWhere = {
+    parentId: null,
+    createdAt: { gte: since },
+    authorId: { not: userId }, // exclude own comments
+    task: {
+      ...taskStatusFilter,
+      ...(tab === "assigned"
+        ? { assignees: { some: { userId } } }
+        : { createdById: userId }),
     },
+  };
+
+  if (countOnly) {
+    const count = await db.taskComment.count({ where: baseWhere });
+    return NextResponse.json({ count });
+  }
+
+  const comments = await db.taskComment.findMany({
+    where: baseWhere,
     include: {
       author: { select: { id: true, name: true, image: true } },
       task: {

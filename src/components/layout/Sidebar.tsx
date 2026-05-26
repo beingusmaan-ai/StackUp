@@ -73,6 +73,7 @@ export function Sidebar() {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showCampaignForm, setShowCampaignForm] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadComments, setUnreadComments] = useState(0);
   const createMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -92,11 +93,32 @@ export function Sidebar() {
     return () => clearInterval(interval);
   }, [session]);
 
+  useEffect(() => {
+    if (!session) return;
+    const fetchUnreadComments = () => {
+      const lastSeen = localStorage.getItem("assignedCommentsLastSeen") || new Date(0).toISOString();
+      fetch(`/api/assigned-comments?count=true&since=${encodeURIComponent(lastSeen)}&tab=assigned`)
+        .then((r) => r.json())
+        .then(({ count }) => { if (typeof count === "number") setUnreadComments(count); })
+        .catch(() => {});
+    };
+    fetchUnreadComments();
+    const interval = setInterval(fetchUnreadComments, 60_000);
+    return () => clearInterval(interval);
+  }, [session]);
+
   const onReportsPath = pathname === "/reports" || pathname.startsWith("/reports/");
   useEffect(() => { if (onReportsPath) setReportsOpen(true); }, [onReportsPath]);
 
   useEffect(() => {
     if (pathname === "/messages") setUnreadMessages(0);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (pathname === "/assigned-comments") {
+      localStorage.setItem("assignedCommentsLastSeen", new Date().toISOString());
+      setUnreadComments(0);
+    }
   }, [pathname]);
 
   useEffect(() => {
@@ -131,7 +153,8 @@ export function Sidebar() {
           {ALL_NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             const isMessages = item.href === "/messages";
-            const badge = isMessages && unreadMessages > 0 ? unreadMessages : 0;
+            const isComments = item.href === "/assigned-comments";
+            const badge = isMessages ? unreadMessages : isComments ? unreadComments : 0;
             return (
               <Link
                 key={item.href}
@@ -243,11 +266,14 @@ export function Sidebar() {
                                   isActive ? "text-[#e8170b]" : "text-gray-400 dark:text-white/30"
                                 )} />
                                 <span className="truncate flex-1">{item.label}</span>
-                                {item.href === "/messages" && unreadMessages > 0 && (
-                                  <span className="ml-auto min-w-[18px] h-[18px] bg-[#e8170b] text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1 leading-none flex-shrink-0">
-                                    {unreadMessages > 99 ? "99+" : unreadMessages}
-                                  </span>
-                                )}
+                                {(() => {
+                                  const b = item.href === "/messages" ? unreadMessages : item.href === "/assigned-comments" ? unreadComments : 0;
+                                  return b > 0 ? (
+                                    <span className="ml-auto min-w-[18px] h-[18px] bg-[#e8170b] text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1 leading-none flex-shrink-0">
+                                      {b > 99 ? "99+" : b}
+                                    </span>
+                                  ) : null;
+                                })()}
                               </Link>
                               {isReports && (
                                 <button
