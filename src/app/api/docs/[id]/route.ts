@@ -31,6 +31,8 @@ export async function GET(
     include: {
       createdBy: { select: { id: true, name: true } },
       shares: { select: { userId: true, role: true } },
+      campaign: { select: { id: true, name: true } },
+      task: { select: { id: true, title: true } },
     },
   });
 
@@ -48,7 +50,7 @@ export async function PATCH(
   const { id } = await params;
   const userId = await getDbUserId(session);
   const body = await req.json();
-  const { title, content, icon, parentId, isPublic } = body;
+  const { title, content, icon, parentId, isPublic, campaignId, taskId } = body;
 
   // Check access: must be owner or have EDITOR share
   const access = await db.doc.findFirst({
@@ -71,6 +73,8 @@ export async function PATCH(
       ...(icon !== undefined && { icon }),
       ...(parentId !== undefined && { parentId }),
       ...(isPublic !== undefined && { isPublic }),
+      ...(campaignId !== undefined && { campaignId: campaignId || null }),
+      ...(taskId !== undefined && { taskId: taskId || null }),
     },
     select: {
       id: true, title: true, icon: true, parentId: true,

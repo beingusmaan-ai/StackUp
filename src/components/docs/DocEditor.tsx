@@ -15,7 +15,7 @@ import {
   Bold, Italic, Strikethrough, Heading1, Heading2, Heading3,
   List, ListOrdered, CheckSquare, Quote, Code, Minus,
   AlignLeft, AlignCenter, AlignRight, Highlighter, Link2,
-  Save, Clock, Share2,
+  Save, Clock, Share2, Megaphone, CheckSquare as TaskIcon, X as XIcon, ChevronDown as ChevronDownIcon,
 } from "lucide-react";
 import { cn, formatRelative } from "@/lib/utils";
 import { toast } from "sonner";
@@ -27,6 +27,10 @@ type Doc = {
   icon?: string | null;
   content?: unknown;
   isPublic?: boolean;
+  campaignId?: string | null;
+  taskId?: string | null;
+  campaign?: { id: string; name: string } | null;
+  task?: { id: string; title: string } | null;
   updatedAt: string;
   createdBy: { name: string };
 };
@@ -47,8 +51,16 @@ export function DocEditor({ doc }: DocEditorProps) {
   const [showShare, setShowShare] = useState(false);
   const [isPublic, setIsPublic] = useState(doc.isPublic ?? false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const linkPickerRef = useRef<HTMLDivElement>(null);
+  const [linkedCampaign, setLinkedCampaign] = useState<{ id: string; name: string } | null>(doc.campaign ?? null);
+  const [linkedTask, setLinkedTask] = useState<{ id: string; title: string } | null>(doc.task ?? null);
+  const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const [linkPickerType, setLinkPickerType] = useState<"campaign" | "task">("campaign");
+  const [linkSearch, setLinkSearch] = useState("");
+  const [campaigns, setCampaigns] = useState<{ id: string; name: string }[]>([]);
+  const [tasks, setTasks] = useState<{ id: string; title: string }[]>([]);
 
-  const save = async (data: { title?: string; content?: unknown; icon?: string }) => {
+  const save = async (data: { title?: string; content?: unknown; icon?: string; campaignId?: string; taskId?: string }) => {
     setSaving(true);
     try {
       await fetch(`/api/docs/${doc.id}`, {
@@ -65,7 +77,7 @@ export function DocEditor({ doc }: DocEditorProps) {
     }
   };
 
-  const debouncedSave = (data: { title?: string; content?: unknown; icon?: string }) => {
+  const debouncedSave = (data: { title?: string; content?: unknown; icon?: string; campaignId?: string; taskId?: string }) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => save(data), 1000);
   };
@@ -94,6 +106,8 @@ export function DocEditor({ doc }: DocEditorProps) {
     setTitle(doc.title);
     setIcon(doc.icon || "");
     setLastSaved(doc.updatedAt);
+    setLinkedCampaign(doc.campaign ?? null);
+    setLinkedTask(doc.task ?? null);
     if (editor && doc.content) {
       editor.commands.setContent(doc.content as object);
     } else if (editor) {
@@ -103,6 +117,29 @@ export function DocEditor({ doc }: DocEditorProps) {
   }, [doc.id]);
 
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
+
+  useEffect(() => {
+    if (!showLinkPicker) return;
+    const handleClick = (e: MouseEvent) => {
+      if (linkPickerRef.current && !linkPickerRef.current.contains(e.target as Node)) {
+        setShowLinkPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showLinkPicker]);
+
+  const fetchCampaigns = async () => {
+    const res = await fetch("/api/campaigns");
+    const data = await res.json();
+    setCampaigns((data.data || []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
+  };
+
+  const fetchTasks = async () => {
+    const res = await fetch("/api/tasks");
+    const data = await res.json();
+    setTasks((data.data || []).map((t: { id: string; title: string }) => ({ id: t.id, title: t.title })));
+  };
 
   if (!editor) return null;
 
@@ -258,9 +295,117 @@ export function DocEditor({ doc }: DocEditorProps) {
             className="w-full text-4xl font-bold text-foreground bg-transparent border-none outline-none placeholder:text-muted-foreground/40 mb-2 resize-none"
           />
 
-          <p className="text-xs text-muted-foreground mb-6">
+          <p className="text-xs text-muted-foreground mb-3">
             By {doc.createdBy.name} · Last edited {formatRelative(lastSaved)}
           </p>
+
+          {/* Link to project / task */}
+          <div className="flex items-center gap-2 flex-wrap mb-6">
+            {linkedCampaign && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-full text-xs font-medium border border-orange-200 dark:border-orange-800">
+                <Megaphone className="w-3 h-3 flex-shrink-0" />
+                {linkedCampaign.name}
+                <button
+                  onClick={() => { setLinkedCampaign(null); save({ campaignId: "" }); }}
+                  className="ml-0.5 hover:text-orange-900 dark:hover:text-orange-100"
+                >
+                  <XIcon className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {linkedTask && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium border border-blue-200 dark:border-blue-800">
+                <TaskIcon className="w-3 h-3 flex-shrink-0" />
+                {linkedTask.title}
+                <button
+                  onClick={() => { setLinkedTask(null); save({ taskId: "" }); }}
+                  className="ml-0.5 hover:text-blue-900 dark:hover:text-blue-100"
+                >
+                  <XIcon className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            <div className="relative" ref={linkPickerRef}>
+              <button
+                onClick={() => {
+                  if (!showLinkPicker) {
+                    if (linkPickerType === "campaign") fetchCampaigns();
+                    else fetchTasks();
+                  }
+                  setShowLinkPicker(v => !v);
+                }}
+                className="flex items-center gap-1 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-full border border-dashed border-border transition-colors"
+              >
+                <Link2 className="w-3 h-3" />
+                Link to...
+              </button>
+              {showLinkPicker && (
+                <div className="absolute top-full left-0 mt-1 w-72 bg-white dark:bg-[#1e293b] border border-border rounded-xl shadow-xl z-30 overflow-hidden">
+                  <div className="flex border-b border-border">
+                    <button
+                      onClick={() => { setLinkPickerType("campaign"); setLinkSearch(""); fetchCampaigns(); }}
+                      className={cn(
+                        "flex-1 px-3 py-2 text-xs font-medium transition-colors",
+                        linkPickerType === "campaign"
+                          ? "text-[#e8170b] border-b-2 border-[#e8170b]"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Projects
+                    </button>
+                    <button
+                      onClick={() => { setLinkPickerType("task"); setLinkSearch(""); fetchTasks(); }}
+                      className={cn(
+                        "flex-1 px-3 py-2 text-xs font-medium transition-colors",
+                        linkPickerType === "task"
+                          ? "text-[#e8170b] border-b-2 border-[#e8170b]"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Tasks
+                    </button>
+                  </div>
+                  <div className="p-2">
+                    <input
+                      value={linkSearch}
+                      onChange={e => setLinkSearch(e.target.value)}
+                      placeholder={`Search ${linkPickerType === "campaign" ? "projects" : "tasks"}…`}
+                      className="w-full px-2.5 py-1.5 text-xs bg-muted rounded-lg outline-none"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto pb-1">
+                    {linkPickerType === "campaign"
+                      ? campaigns
+                          .filter(c => c.name.toLowerCase().includes(linkSearch.toLowerCase()))
+                          .map(c => (
+                            <button
+                              key={c.id}
+                              onClick={() => { setLinkedCampaign(c); setShowLinkPicker(false); save({ campaignId: c.id }); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted transition-colors text-left"
+                            >
+                              <Megaphone className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+                              {c.name}
+                            </button>
+                          ))
+                      : tasks
+                          .filter(t => t.title.toLowerCase().includes(linkSearch.toLowerCase()))
+                          .map(t => (
+                            <button
+                              key={t.id}
+                              onClick={() => { setLinkedTask(t); setShowLinkPicker(false); save({ taskId: t.id }); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted transition-colors text-left"
+                            >
+                              <TaskIcon className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                              {t.title}
+                            </button>
+                          ))
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* TipTap content */}
           <EditorContent editor={editor} />

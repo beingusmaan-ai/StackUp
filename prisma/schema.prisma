@@ -183,6 +183,7 @@ model Campaign {
   tasks              Task[]
   folders            ProjectFolder[]
   recurringTemplates RecurringTemplate[]
+  docs               Doc[]
 
   @@index([departmentId])
   @@index([workspaceId])
@@ -258,6 +259,7 @@ model Task {
   notifications     Notification[]
   timeEntries       TimeEntry[]
   checklist         TaskChecklist[]
+  docs              Doc[]
 
   @@index([status])
   @@index([dueDate])
@@ -607,6 +609,8 @@ model Doc {
   content     Json?
   icon        String?
   parentId    String?
+  campaignId  String?
+  taskId      String?
   createdById String
   isPublic    Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -616,8 +620,12 @@ model Doc {
   parent    Doc?       @relation("DocChildren", fields: [parentId], references: [id], onDelete: SetNull)
   children  Doc[]      @relation("DocChildren")
   shares    DocShare[]
+  campaign  Campaign?  @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  task      Task?      @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   @@index([parentId])
+  @@index([campaignId])
+  @@index([taskId])
   @@map("docs")
 }
 

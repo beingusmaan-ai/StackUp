@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   FilePlus, Search, Globe, Lock, MoreHorizontal, Trash2,
-  ChevronDown, FileText, Users,
+  ChevronDown, FileText, Users, Megaphone, CheckSquare,
 } from "lucide-react";
 import { cn, formatRelative } from "@/lib/utils";
 import { UserAvatar } from "@/components/shared/UserAvatar";
@@ -22,6 +22,8 @@ type Doc = {
   createdAt: string;
   createdById: string;
   createdBy: { id: string; name: string };
+  campaign?: { id: string; name: string } | null;
+  task?: { id: string; title: string } | null;
 };
 
 const PROJECT_OVERVIEW_CONTENT = {
@@ -252,8 +254,9 @@ export default function DocsPage() {
       {/* Docs table */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         {/* Table header */}
-        <div className="grid grid-cols-[1fr_140px_100px_80px] gap-4 px-4 py-2.5 border-b border-border bg-muted/40">
+        <div className="grid grid-cols-[1fr_160px_140px_100px_80px] gap-4 px-4 py-2.5 border-b border-border bg-muted/40">
           <span className="text-xs font-semibold text-muted-foreground">Name</span>
+          <span className="text-xs font-semibold text-muted-foreground">Location</span>
           <span className="text-xs font-semibold text-muted-foreground">Date updated</span>
           <span className="text-xs font-semibold text-muted-foreground">Created by</span>
           <span className="text-xs font-semibold text-muted-foreground">Sharing</span>
@@ -288,7 +291,7 @@ export default function DocsPage() {
                 <div
                   key={doc.id}
                   onClick={() => router.push(`/docs/${doc.id}`)}
-                  className="grid grid-cols-[1fr_140px_100px_80px] gap-4 px-4 py-3 hover:bg-muted/30 cursor-pointer transition-colors group relative items-center"
+                  className="grid grid-cols-[1fr_160px_140px_100px_80px] gap-4 px-4 py-3 hover:bg-muted/30 cursor-pointer transition-colors group relative items-center"
                 >
                   {/* Name */}
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -298,6 +301,23 @@ export default function DocsPage() {
                       <span className="flex items-center gap-1 text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md flex-shrink-0">
                         <FileText className="w-2.5 h-2.5" />{children}
                       </span>
+                    )}
+                  </div>
+
+                  {/* Location */}
+                  <div className="min-w-0">
+                    {doc.campaign ? (
+                      <span className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 truncate">
+                        <Megaphone className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{doc.campaign.name}</span>
+                      </span>
+                    ) : doc.task ? (
+                      <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 truncate">
+                        <CheckSquare className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{doc.task.title}</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/40">—</span>
                     )}
                   </div>
 
