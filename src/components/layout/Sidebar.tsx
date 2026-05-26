@@ -23,9 +23,10 @@ const NAV_GROUPS = [
   {
     label: "Main Menu",
     items: [
-      { href: "/dashboard",     label: "Dashboard",     icon: LayoutDashboard },
-      { href: "/messages",      label: "Messages",      icon: MessageSquare },
-      { href: "/campaigns",     label: "Projects",      icon: Megaphone, hasProjectsSub: true },
+      { href: "/dashboard",          label: "Dashboard",     icon: LayoutDashboard },
+      { href: "/messages",           label: "Messages",      icon: MessageSquare },
+      { href: "/assigned-comments",  label: "Comments",      icon: AtSign },
+      { href: "/campaigns",          label: "Projects",      icon: Megaphone, hasProjectsSub: true },
       { href: "/tasks",         label: "Tasks",         icon: CheckSquare },
       { href: "/calendar",      label: "Calendar",      icon: CalendarDays },
       { href: "/workload",      label: "Workload",      icon: BarChart2 },
@@ -42,10 +43,9 @@ const NAV_GROUPS = [
   {
     label: "General",
     items: [
-      { href: "/timesheets",          label: "Timesheets",    icon: Clock },
-      { href: "/notifications",       label: "Notifications", icon: Bell },
-      { href: "/assigned-comments",   label: "Comments",      icon: AtSign },
-      { href: "/settings",            label: "Settings",      icon: Settings },
+      { href: "/timesheets",    label: "Timesheets",    icon: Clock },
+      { href: "/notifications", label: "Notifications", icon: Bell },
+      { href: "/settings",      label: "Settings",      icon: Settings },
     ],
   },
 ];
