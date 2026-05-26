@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Megaphone, CalendarDays,
   Users, BarChart3, Bell, Settings, LogOut,
   ChevronLeft, ChevronRight, Plus,
-  Clock, BarChart2, ChevronDown, Layers, TrendingUp, AlertTriangle, CheckSquare, MessageSquare,
+  Clock, BarChart2, ChevronDown, Layers, TrendingUp, AlertTriangle, CheckSquare, MessageSquare, AtSign,
 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
 import { useEffect, useRef, useState } from "react";
@@ -42,9 +42,10 @@ const NAV_GROUPS = [
   {
     label: "General",
     items: [
-      { href: "/timesheets",    label: "Timesheets",    icon: Clock },
-      { href: "/notifications", label: "Notifications", icon: Bell },
-      { href: "/settings",      label: "Settings",      icon: Settings },
+      { href: "/timesheets",          label: "Timesheets",    icon: Clock },
+      { href: "/notifications",       label: "Notifications", icon: Bell },
+      { href: "/assigned-comments",   label: "Comments",      icon: AtSign },
+      { href: "/settings",            label: "Settings",      icon: Settings },
     ],
   },
 ];
