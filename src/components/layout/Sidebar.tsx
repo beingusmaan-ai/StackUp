@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Megaphone, CalendarDays,
   Users, BarChart3, Bell, Settings, LogOut,
   ChevronLeft, ChevronRight, Plus,
-  Clock, BarChart2, ChevronDown, Layers, TrendingUp, AlertTriangle, CheckSquare,
+  Clock, BarChart2, ChevronDown, Layers, TrendingUp, AlertTriangle, CheckSquare, MessageSquare,
 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
 import { useEffect, useRef, useState } from "react";
@@ -35,6 +35,7 @@ const NAV_GROUPS = [
     label: "Team",
     items: [
       { href: "/team",          label: "Team",          icon: Users },
+      { href: "/messages",      label: "Messages",      icon: MessageSquare },
       { href: "/reports",       label: "Reports",       icon: BarChart3, hasReportsSub: true },
     ],
   },

@@ -3,11 +3,12 @@ import { cn, getInitials } from "@/lib/utils";
 interface UserAvatarProps {
   name: string;
   image?: string | null;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   className?: string;
 }
 
 const sizeClasses = {
+  xs: "w-7 h-7 text-[9px]",
   sm: "w-6 h-6 text-[10px]",
   md: "w-8 h-8 text-xs",
   lg: "w-10 h-10 text-sm",
