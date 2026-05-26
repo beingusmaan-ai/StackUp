@@ -24,6 +24,7 @@ const NAV_GROUPS = [
     label: "Main Menu",
     items: [
       { href: "/dashboard",     label: "Dashboard",     icon: LayoutDashboard },
+      { href: "/messages",      label: "Messages",      icon: MessageSquare },
       { href: "/campaigns",     label: "Projects",      icon: Megaphone, hasProjectsSub: true },
       { href: "/tasks",         label: "Tasks",         icon: CheckSquare },
       { href: "/calendar",      label: "Calendar",      icon: CalendarDays },
@@ -35,7 +36,6 @@ const NAV_GROUPS = [
     label: "Team",
     items: [
       { href: "/team",          label: "Team",          icon: Users },
-      { href: "/messages",      label: "Messages",      icon: MessageSquare },
       { href: "/reports",       label: "Reports",       icon: BarChart3, hasReportsSub: true },
     ],
   },
