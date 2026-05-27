@@ -384,6 +384,7 @@ export default function DocsPage() {
   const [search, setSearch] = useState("");
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [showNewMenu, setShowNewMenu] = useState(false);
+  const [showTemplatesInMenu, setShowTemplatesInMenu] = useState(false);
   const [shareDoc, setShareDoc] = useState<Doc | null>(null);
   const [showMoveModal, setShowMoveModal] = useState<{ id: string; title: string } | null>(null);
   const [moveCampaigns, setMoveCampaigns] = useState<{ id: string; name: string }[]>([]);
@@ -591,7 +592,7 @@ export default function DocsPage() {
         <div className="flex items-center gap-2">
           <div className="relative">
             <button
-              onClick={() => setShowNewMenu((v) => !v)}
+              onClick={() => { setShowNewMenu((v) => !v); setShowTemplatesInMenu(false); }}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#e8170b] hover:bg-[#c91409] text-white text-sm font-semibold transition-colors"
             >
               <FilePlus className="w-4 h-4" />
@@ -599,27 +600,42 @@ export default function DocsPage() {
               <ChevronDown className="w-3.5 h-3.5" />
             </button>
             {showNewMenu && (
-              <div className="absolute right-0 top-full mt-1 w-44 bg-background border border-border rounded-xl shadow-lg z-20 py-1 overflow-hidden">
+              <div className="absolute right-0 top-full mt-1 w-52 bg-background border border-border rounded-xl shadow-lg z-20 py-1 overflow-hidden">
                 <button
-                  onClick={() => { setShowNewMenu(false); createDoc.mutate({ title: "Untitled", icon: "📄" }); }}
+                  onClick={() => { setShowNewMenu(false); setShowTemplatesInMenu(false); createDoc.mutate({ title: "Untitled", icon: "📄" }); }}
                   className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                 >
                   <FileText className="w-4 h-4 text-[#e8170b]" /> Blank page
                 </button>
-                <div className="my-1 border-t border-border" />
-                <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Use Template</p>
-                {TEMPLATES.slice(3).map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => { setShowNewMenu(false); createDoc.mutate({ title: t.title, content: t.content, icon: t.icon }); }}
-                    className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-                  >
-                    <span className="text-base">{t.icon}</span> {t.title}
-                  </button>
-                ))}
+
+                {/* Use Template expandable */}
+                <button
+                  onClick={() => setShowTemplatesInMenu((v) => !v)}
+                  className="flex items-center justify-between w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <FileText className="w-4 h-4 text-[#e8170b]" /> Use Template
+                  </div>
+                  <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform duration-150", showTemplatesInMenu && "rotate-180")} />
+                </button>
+                {showTemplatesInMenu && (
+                  <div className="max-h-56 overflow-y-auto border-t border-border bg-muted/30">
+                    {TEMPLATES.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => { setShowNewMenu(false); setShowTemplatesInMenu(false); createDoc.mutate({ title: t.title, content: t.content, icon: t.icon }); }}
+                        className="flex items-center gap-2.5 w-full px-4 py-1.5 text-sm text-foreground hover:bg-muted transition-colors"
+                      >
+                        <span className="text-base flex-shrink-0">{t.icon}</span>
+                        <span className="truncate">{t.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <div className="my-1 border-t border-border" />
                 <button
-                  onClick={() => { setShowNewMenu(false); importInputRef.current?.click(); }}
+                  onClick={() => { setShowNewMenu(false); setShowTemplatesInMenu(false); importInputRef.current?.click(); }}
                   className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                 >
                   <Upload className="w-4 h-4 text-[#e8170b]" /> Import doc
