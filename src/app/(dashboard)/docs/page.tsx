@@ -140,6 +140,7 @@ export default function DocsPage() {
   // Filter & sort state
   const [filterRows, setFilterRows] = useState<FilterRow[]>([]);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const [filterCampaigns, setFilterCampaigns] = useState<{ id: string; name: string }[]>([]);
   const [sortField, setSortField] = useState<SortField>("updatedAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -250,6 +251,14 @@ export default function DocsPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showSortMenu]);
 
+  useEffect(() => {
+    if (showFiltersPanel && filterCampaigns.length === 0) {
+      fetch("/api/campaigns?picker=1")
+        .then((r) => r.json())
+        .then((d) => setFilterCampaigns((d.data || []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name }))));
+    }
+  }, [showFiltersPanel, filterCampaigns.length]);
+
   const addFilterRow = () =>
     setFilterRows((prev) => [...prev, { id: Math.random().toString(36).slice(2), field: "", value: "" }]);
 
@@ -297,8 +306,7 @@ export default function DocsPage() {
       if (!row.field || !row.value) return true;
       if (row.field === "title")       return doc.title.toLowerCase().includes(row.value.toLowerCase());
       if (row.field === "location") {
-        if (row.value === "has-project")  return !!doc.campaign;
-        if (row.value === "no-location")  return !doc.campaign;
+        return doc.campaign?.id === row.value;
       }
       if (row.field === "createdBy")   return doc.createdById === row.value;
       if (row.field === "dateUpdated") {
@@ -535,8 +543,9 @@ export default function DocsPage() {
                     className="flex-1 px-2.5 py-1.5 text-xs bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-[#e8170b] cursor-pointer"
                   >
                     <option value="">Select project…</option>
-                    <option value="has-project">Has project</option>
-                    <option value="no-location">No project</option>
+                    {filterCampaigns.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
                   </select>
                 )}
                 {row.field === "createdBy" && (
