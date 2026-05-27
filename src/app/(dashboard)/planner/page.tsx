@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, RefreshCw, Unplug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -22,7 +23,16 @@ interface CalendarEvent {
   color?: string | null;
   userId: string;
   taskId?: string | null;
+  googleEventId?: string | null;
+  outlookEventId?: string | null;
+  syncSource?: string | null;
   task?: { id: string; title: string; priority: string } | null;
+}
+
+interface CalendarConnection {
+  provider: string;
+  email: string | null;
+  updatedAt: string;
 }
 
 interface CreateEventInput {
@@ -136,6 +146,18 @@ function CurrentTimeLine() {
 
 // ─── EventBlock ───────────────────────────────────────────────────────────────
 
+function ProviderBadge({ syncSource }: { syncSource?: string | null }) {
+  if (!syncSource) return null;
+  return (
+    <span className={cn(
+      "absolute top-0.5 right-0.5 text-[8px] font-bold px-1 py-px rounded-sm leading-none",
+      syncSource === "GOOGLE"    ? "bg-white/30 text-white" : "bg-white/30 text-white"
+    )}>
+      {syncSource === "GOOGLE" ? "G" : "M"}
+    </span>
+  );
+}
+
 function EventBlock({ event, onClick }: { event: CalendarEvent; onClick: (e: React.MouseEvent) => void }) {
   const start  = new Date(event.startTime);
   const end    = new Date(event.endTime);
@@ -151,6 +173,7 @@ function EventBlock({ event, onClick }: { event: CalendarEvent; onClick: (e: Rea
       onClick={onClick}
     >
       <div className="absolute inset-y-0 left-0 w-1 rounded-l-lg" style={{ backgroundColor: color }} />
+      <ProviderBadge syncSource={event.syncSource} />
       <div className="pl-2 pr-1.5 py-0.5">
         <p className="text-[11px] font-semibold text-white truncate leading-tight">{event.title}</p>
         {height >= 44 && (
@@ -604,16 +627,151 @@ function EventModal({ event, slot, onClose, onSave, onDelete, isPending }: {
   );
 }
 
+// ─── SyncPanel ────────────────────────────────────────────────────────────────
+
+function SyncPanel({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const [syncing, setSyncing] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
+
+  const { data: connRes, refetch: refetchConns } = useQuery({
+    queryKey: ["planner-connections"],
+    queryFn:  () => fetch("/api/planner/connections").then((r) => r.json()),
+  });
+  const connections: CalendarConnection[] = connRes?.data ?? [];
+  const google    = connections.find((c) => c.provider === "GOOGLE");
+  const microsoft = connections.find((c) => c.provider === "MICROSOFT");
+
+  const syncNow = async (provider: string) => {
+    setSyncing(provider);
+    try {
+      await fetch(`/api/planner/sync/${provider.toLowerCase()}`, { method: "POST" });
+      await qc.invalidateQueries({ queryKey: ["planner-events"] });
+      toast.success(`${provider === "GOOGLE" ? "Google Calendar" : "Outlook"} synced`);
+    } catch {
+      toast.error("Sync failed");
+    } finally {
+      setSyncing(null);
+    }
+  };
+
+  const disconnect = async (provider: string) => {
+    setDisconnecting(provider);
+    try {
+      await fetch(`/api/planner/sync/${provider.toLowerCase()}`, { method: "DELETE" });
+      await refetchConns();
+      await qc.invalidateQueries({ queryKey: ["planner-events"] });
+      toast.success(`${provider === "GOOGLE" ? "Google Calendar" : "Outlook"} disconnected`);
+    } catch {
+      toast.error("Disconnect failed");
+    } finally {
+      setDisconnecting(null);
+    }
+  };
+
+  const PROVIDERS = [
+    { id: "GOOGLE",    label: "Google Calendar", color: "#4285F4", letter: "G", conn: google },
+    { id: "MICROSOFT", label: "Microsoft Outlook", color: "#0078D4", letter: "M", conn: microsoft },
+  ];
+
+  return (
+    <div className="absolute right-0 top-full mt-1 w-72 bg-background border border-border rounded-2xl shadow-xl z-50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <h3 className="text-[13px] font-semibold text-foreground">Calendar Sync</h3>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors"><X className="w-3.5 h-3.5" /></button>
+      </div>
+      <div className="p-3 space-y-2.5">
+        {PROVIDERS.map(({ id, label, color, letter, conn }) => (
+          <div key={id} className="flex items-start gap-3 p-2.5 rounded-xl border border-border bg-muted/20">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ backgroundColor: color }}>
+              {letter}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] font-semibold text-foreground">{label}</p>
+              {conn ? (
+                <>
+                  <p className="text-[10px] text-muted-foreground truncate">{conn.email ?? "Connected"}</p>
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <button
+                      onClick={() => syncNow(id)}
+                      disabled={syncing === id}
+                      className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-[#e8170b]/10 text-[#e8170b] hover:bg-[#e8170b]/20 transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw className={cn("w-2.5 h-2.5", syncing === id && "animate-spin")} />
+                      {syncing === id ? "Syncing…" : "Sync now"}
+                    </button>
+                    <button
+                      onClick={() => disconnect(id)}
+                      disabled={disconnecting === id}
+                      className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors disabled:opacity-50"
+                    >
+                      <Unplug className="w-2.5 h-2.5" />
+                      {disconnecting === id ? "…" : "Disconnect"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-[10px] text-muted-foreground/60">Not connected</p>
+                  <a
+                    href={`/api/planner/sync/${id.toLowerCase()}/connect`}
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 mt-1.5 rounded-lg border border-border hover:bg-muted transition-colors text-foreground"
+                  >
+                    Connect
+                  </a>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+        <p className="text-[9px] text-muted-foreground/50 px-1 pb-1">Events sync 30 days back · Two-way sync</p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PlannerPage() {
   const qc = useQueryClient();
+  const searchParams = useSearchParams();
   const [view,         setView]         = useState<View>("week");
   const [currentDate,  setCurrentDate]  = useState(new Date());
   const [showModal,    setShowModal]    = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [modalSlot,    setModalSlot]    = useState<ModalSlot | null>(null);
   const [miniCalMonth, setMiniCalMonth] = useState(new Date());
+  const [showSync,     setShowSync]     = useState(false);
+  const syncRef = useRef<HTMLDivElement>(null);
+
+  // Handle OAuth callback toasts
+  useEffect(() => {
+    const synced = searchParams.get("synced");
+    const err    = searchParams.get("sync_error");
+    if (synced === "google")    toast.success("Google Calendar connected");
+    if (synced === "microsoft") toast.success("Microsoft Outlook connected");
+    if (err === "google")       toast.error("Google Calendar connection failed");
+    if (err === "microsoft")    toast.error("Outlook connection failed");
+  }, [searchParams]);
+
+  // Auto-sync on mount
+  useEffect(() => {
+    Promise.allSettled([
+      fetch("/api/planner/sync/google",    { method: "POST" }),
+      fetch("/api/planner/sync/microsoft", { method: "POST" }),
+    ]).then(() => qc.invalidateQueries({ queryKey: ["planner-events"] }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Close sync panel on outside click
+  useEffect(() => {
+    if (!showSync) return;
+    const handler = (e: MouseEvent) => {
+      if (syncRef.current && !syncRef.current.contains(e.target as Node)) setShowSync(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showSync]);
 
   const rangeStart = view === "day" ? startOfDay(currentDate) : view === "week" ? startOfWeekMon(currentDate) : startOfMonth(currentDate);
   const rangeEnd   = view === "day" ? endOfDay(currentDate)   : view === "week" ? endOfWeekSun(currentDate)   : endOfMonth(currentDate);
@@ -628,6 +786,13 @@ export default function PlannerPage() {
     queryKey: ["planner-tasks"],
     queryFn: () => fetch("/api/tasks?picker=1").then((r) => r.json()),
   });
+
+  const { data: connRes } = useQuery({
+    queryKey: ["planner-connections"],
+    queryFn: () => fetch("/api/planner/connections").then((r) => r.json()),
+  });
+  const connections: CalendarConnection[] = connRes?.data ?? [];
+  const hasConnections = connections.length > 0;
   const tasks: PlannerTask[] = taskRes?.data ?? [];
 
   const createEvent = useMutation({
@@ -708,6 +873,28 @@ export default function PlannerPage() {
               </button>
             ))}
           </div>
+
+          {/* Sync button */}
+          <div className="relative" ref={syncRef}>
+            <button
+              onClick={() => setShowSync((v) => !v)}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors",
+                hasConnections
+                  ? "border-[#e8170b]/30 text-[#e8170b] bg-[#e8170b]/5 hover:bg-[#e8170b]/10"
+                  : "border-border text-muted-foreground hover:bg-muted"
+              )}
+              title="Calendar sync settings"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Sync</span>
+              {hasConnections && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#e8170b]" />
+              )}
+            </button>
+            {showSync && <SyncPanel onClose={() => setShowSync(false)} />}
+          </div>
+
           <button
             onClick={() => openNew(currentDate)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#e8170b] hover:bg-[#c91409] text-white text-xs font-semibold transition-colors"

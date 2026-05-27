@@ -43,6 +43,7 @@ model User {
   createdDocs           Doc[]                @relation("DocCreator")
   docShares             DocShare[]
   calendarEvents        CalendarEvent[]      @relation("UserCalendarEvents")
+  calendarConnections   CalendarConnection[]
 
   @@map("users")
 }
@@ -645,11 +646,34 @@ model CalendarEvent {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  googleEventId  String? @unique
+  outlookEventId String? @unique
+  syncSource     String?
+
   user User  @relation("UserCalendarEvents", fields: [userId], references: [id], onDelete: Cascade)
   task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   @@index([userId, startTime])
   @@map("calendar_events")
+}
+
+model CalendarConnection {
+  id           String    @id @default(cuid())
+  userId       String
+  provider     String
+  accessToken  String    @db.Text
+  refreshToken String?   @db.Text
+  expiresAt    DateTime?
+  syncToken    String?   @db.Text
+  deltaLink    String?   @db.Text
+  email        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@map("calendar_connections")
 }
 
 model DocShare {

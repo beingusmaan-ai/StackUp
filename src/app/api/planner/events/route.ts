@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { pushToAllProviders } from "@/lib/calendar-sync";
 
 const eventSchema = z.object({
   title:       z.string().min(1).max(200),
@@ -68,6 +69,9 @@ export async function POST(req: NextRequest) {
       },
       include: { task: { select: { id: true, title: true, priority: true } } },
     });
+
+    // Push to connected external providers (non-blocking errors)
+    pushToAllProviders(userId, { ...event, startTime: event.startTime, endTime: event.endTime }, "create").catch(console.error);
 
     return NextResponse.json({ data: event }, { status: 201 });
   } catch (err) {

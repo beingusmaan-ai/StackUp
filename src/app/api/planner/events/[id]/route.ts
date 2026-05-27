@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { pushToAllProviders } from "@/lib/calendar-sync";
 
 async function resolveUserId(session: { user: { id: string; email?: string | null } }) {
   let userId = session.user.id;
@@ -40,6 +41,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       include: { task: { select: { id: true, title: true, priority: true } } },
     });
 
+    pushToAllProviders(userId, { ...event, startTime: event.startTime, endTime: event.endTime }, "update").catch(console.error);
+
     return NextResponse.json({ data: event });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
@@ -53,9 +56,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const userId = await resolveUserId(session);
     const { id } = await params;
 
-    const existing = await db.calendarEvent.findUnique({ where: { id }, select: { userId: true } });
+    const existing = await db.calendarEvent.findUnique({ where: { id } });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (existing.userId !== userId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    // Push delete to providers before removing locally
+    await pushToAllProviders(userId, { ...existing, startTime: existing.startTime, endTime: existing.endTime }, "delete").catch(console.error);
 
     await db.calendarEvent.delete({ where: { id } });
     return NextResponse.json({ ok: true });
