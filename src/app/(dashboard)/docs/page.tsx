@@ -8,7 +8,7 @@ import {
   FilePlus, Search, Globe, Lock, MoreHorizontal, Trash2,
   ChevronDown, FileText, Megaphone, CheckSquare,
   Pencil, Copy, Link2, FolderInput, X, Share2,
-  SlidersHorizontal, ArrowUpDown, User, Calendar, MapPin, Type,
+  SlidersHorizontal, ArrowUpDown, User, Calendar, MapPin, Type, Upload,
 } from "lucide-react";
 import { cn, formatRelative } from "@/lib/utils";
 import { toast } from "sonner";
@@ -144,6 +144,7 @@ export default function DocsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["docs"],
@@ -263,6 +264,26 @@ export default function DocsPage() {
     return Array.from(seen.values());
   }, [docs]);
 
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = (ev.target?.result as string) ?? "";
+      const paragraphs = text.split(/\n\n+/).map((p) => p.trim()).filter(Boolean);
+      const content = {
+        type: "doc",
+        content: paragraphs.length > 0
+          ? paragraphs.map((p) => ({ type: "paragraph", content: [{ type: "text", text: p.replace(/\n/g, " ") }] }))
+          : [{ type: "paragraph" }],
+      };
+      const title = file.name.replace(/\.[^.]+$/, "");
+      createDoc.mutate({ title, content, icon: "📄" });
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
   const childCount = (id: string) => docs.filter((d) => d.parentId === id).length;
   const rootDocs = docs.filter((d) => !d.parentId);
 
@@ -332,6 +353,13 @@ export default function DocsPage() {
                     <span className="text-base">{t.icon}</span> {t.title}
                   </button>
                 ))}
+                <div className="my-1 border-t border-border" />
+                <button
+                  onClick={() => { setShowNewMenu(false); importInputRef.current?.click(); }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                >
+                  <Upload className="w-4 h-4 text-[#e8170b]" /> Import doc
+                </button>
               </div>
             )}
           </div>
@@ -731,6 +759,15 @@ export default function DocsPage() {
           onPublicToggle={() => queryClient.invalidateQueries({ queryKey: ["docs"] })}
         />
       )}
+
+      {/* Hidden import file input */}
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".txt,.md"
+        className="hidden"
+        onChange={handleImport}
+      />
 
       {/* Move to Project/Task modal */}
       {showMoveModal && (
