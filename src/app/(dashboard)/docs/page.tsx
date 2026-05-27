@@ -17,7 +17,7 @@ import { ShareModal } from "@/components/docs/ShareModal";
 type FilterField = "title" | "location" | "createdBy" | "dateUpdated" | "dateCreated";
 interface FilterRow { id: string; field: FilterField | ""; value: string }
 
-type SortField = "title" | "updatedAt";
+type SortField = "createdAt" | "updatedAt";
 type SortDir = "asc" | "desc";
 
 const FIELD_LABELS: Record<FilterField, string> = {
@@ -47,81 +47,332 @@ type Doc = {
   task?: { id: string; title: string } | null;
 };
 
-const PROJECT_OVERVIEW_CONTENT = {
-  type: "doc",
-  content: [
-    { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Goals" }] },
-    { type: "paragraph", content: [{ type: "text", text: "Describe the main goals of this project..." }] },
-    { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Scope" }] },
-    { type: "paragraph", content: [{ type: "text", text: "What is included and excluded..." }] },
-    { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Milestones" }] },
-    { type: "bulletList", content: [
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Milestone 1 — description" }] }] },
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Milestone 2 — description" }] }] },
-    ]},
-    { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Team" }] },
-    { type: "paragraph", content: [{ type: "text", text: "List team members and their roles..." }] },
-  ],
-};
-
-const MEETING_NOTES_CONTENT = {
-  type: "doc",
-  content: [
-    { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Agenda" }] },
-    { type: "bulletList", content: [
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Topic 1" }] }] },
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Topic 2" }] }] },
-    ]},
-    { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Notes" }] },
-    { type: "paragraph", content: [{ type: "text", text: "Meeting notes go here..." }] },
-    { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Action Items" }] },
-    { type: "taskList", content: [
-      { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "Action item 1 — Owner" }] }] },
-      { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "Action item 2 — Owner" }] }] },
-    ]},
-  ],
-};
-
-const GUIDELINES_CONTENT = {
-  type: "doc",
-  content: [
-    { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Purpose" }] },
-    { type: "paragraph", content: [{ type: "text", text: "Explain the purpose of these guidelines..." }] },
-    { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Standards" }] },
-    { type: "orderedList", content: [
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Standard 1" }] }] },
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Standard 2" }] }] },
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Standard 3" }] }] },
-    ]},
-    { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Do's and Don'ts" }] },
-    { type: "paragraph", content: [{ type: "text", text: "List key do's and don'ts..." }] },
-  ],
-};
+const TEMPLATE_CATEGORIES = [
+  { id: "all",       label: "All" },
+  { id: "marketing", label: "Marketing" },
+  { id: "planning",  label: "Planning" },
+  { id: "team",      label: "Team" },
+];
 
 const TEMPLATES = [
   {
-    id: "project-overview",
-    icon: "🎯",
+    id: "campaign-brief", category: "marketing", icon: "🚀",
+    title: "Campaign Brief",
+    desc: "Strategy, audience, channels, and success metrics",
+    bg: "from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20",
+    content: { type: "doc", content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Campaign Overview" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Provide a brief summary — what this campaign is, why we're running it, and what we hope to achieve." }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Objectives" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Objective 1 — e.g. increase brand awareness by 20%" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Objective 2 — e.g. generate 500 qualified leads" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Objective 3 — e.g. drive $50K in attributed revenue" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Target Audience" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Describe your ideal customer — demographics, psychographics, pain points, and motivations." }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Key Messages" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Primary: What is the single most important thing to communicate?" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Supporting message 1" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Supporting message 2" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Channels & Tactics" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Social Media — platforms, formats, frequency" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Email — audience segment, number of sends" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Paid Ads — channels, targeting, budget split" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Content / SEO — topics, keywords" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Budget" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Total budget: $___" }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Timeline" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Planning: [Start] – [End]" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Production: [Start] – [End]" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Launch: [Date]" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Review: [Date]" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Success Metrics" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Impressions: ___" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Click-through rate: ___" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Conversions: ___" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "ROI: ___" }] }] },
+      ]},
+    ]},
+  },
+  {
+    id: "social-media", category: "marketing", icon: "📱",
+    title: "Social Media Strategy",
+    desc: "Content pillars, posting schedule, and KPIs",
+    bg: "from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20",
+    content: { type: "doc", content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Platform Overview" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Summarize which platforms you're focusing on and why they make sense for your audience." }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Content Pillars" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Educational — Tips, how-tos, and industry insights" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Inspirational — Success stories, quotes, behind-the-scenes" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Promotional — Product launches, offers, announcements" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Engagement — Polls, questions, user-generated content" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Posting Schedule" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Instagram: ___ posts/week" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "LinkedIn: ___ posts/week" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Twitter / X: ___ posts/day" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "TikTok: ___ posts/week" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Tone & Voice" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Describe how your brand sounds on social — the words you use, what you avoid, and the personality you project." }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "KPIs" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Follower growth: ___" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Engagement rate: ___" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Reach / impressions: ___" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Website clicks: ___" }] }] },
+      ]},
+    ]},
+  },
+  {
+    id: "email-campaign", category: "marketing", icon: "📧",
+    title: "Email Campaign",
+    desc: "Subject lines, structure, A/B tests, and metrics",
+    bg: "from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20",
+    content: { type: "doc", content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Campaign Goal" }] },
+      { type: "paragraph", content: [{ type: "text", text: "What do you want this email campaign to achieve? Be specific and measurable." }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Audience Segment" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Who are you sending to? Why this segment? Estimated list size: ___" }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Subject Line Options" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Option A: " }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Option B: " }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Option C: " }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Email Structure" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Header / Hero — describe the visual" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Opening line — hook the reader in one sentence" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Body copy — key message and supporting details" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "CTA button — Text: \"___\" → URL: ___" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Footer — unsubscribe link, social icons, address" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "A/B Test Plan" }] },
+      { type: "taskList", content: [
+        { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "Subject line A vs B" }] }] },
+        { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "CTA copy variation" }] }] },
+        { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "Send time variation" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Success Metrics" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Open rate target: ___" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Click-through rate target: ___" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Conversions target: ___" }] }] },
+      ]},
+    ]},
+  },
+  {
+    id: "brand-guidelines", category: "marketing", icon: "🎨",
+    title: "Brand Guidelines",
+    desc: "Colors, typography, logo rules, and tone of voice",
+    bg: "from-fuchsia-50 to-pink-50 dark:from-fuchsia-900/20 dark:to-pink-900/20",
+    content: { type: "doc", content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Mission & Vision" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Mission: ..." }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Vision: ..." }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Brand Personality" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Trait 1 — description" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Trait 2 — description" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Trait 3 — description" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Logo Usage" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Minimum size: ___px" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Required clear space: ___" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Acceptable backgrounds: White, Dark, Brand color" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Never stretch, rotate, or recolor the logo" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Color Palette" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Primary: #______" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Secondary: #______" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Accent: #______" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Background: #______" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Typography" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Heading font: ___" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Body font: ___" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Accent / mono font: ___" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Tone of Voice" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "We are: [adjective], [adjective], [adjective]" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "We are not: [adjective], [adjective], [adjective]" }] }] },
+      ]},
+    ]},
+  },
+  {
+    id: "project-overview", category: "planning", icon: "🎯",
     title: "Project Overview",
-    desc: "Summarize goals, scope, and milestones",
-    bg: "from-orange-100 to-red-100 dark:from-orange-900/30 dark:to-red-900/30",
-    content: PROJECT_OVERVIEW_CONTENT,
+    desc: "Summarize goals, scope, milestones, and team",
+    bg: "from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20",
+    content: { type: "doc", content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Goals" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Describe the main goals of this project..." }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Scope" }] },
+      { type: "paragraph", content: [{ type: "text", text: "What is included and excluded..." }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Milestones" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Milestone 1 — description" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Milestone 2 — description" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Team" }] },
+      { type: "paragraph", content: [{ type: "text", text: "List team members and their roles..." }] },
+    ]},
   },
   {
-    id: "meeting-notes",
-    icon: "📝",
+    id: "okrs", category: "planning", icon: "🏆",
+    title: "OKRs & Goals",
+    desc: "Objectives, key results, and progress check-ins",
+    bg: "from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20",
+    content: { type: "doc", content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Q___ / ___ Goals" }] },
+      { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: "Objective 1: [Name]" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Why this matters: ..." }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "KR 1.1: [measurable outcome]" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "KR 1.2: [measurable outcome]" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "KR 1.3: [measurable outcome]" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: "Objective 2: [Name]" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Why this matters: ..." }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "KR 2.1: [measurable outcome]" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "KR 2.2: [measurable outcome]" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: "Objective 3: [Name]" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Why this matters: ..." }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "KR 3.1: [measurable outcome]" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "KR 3.2: [measurable outcome]" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Progress Check-ins" }] },
+      { type: "taskList", content: [
+        { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "Mid-quarter review" }] }] },
+        { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "End-of-quarter review" }] }] },
+      ]},
+    ]},
+  },
+  {
+    id: "competitive-analysis", category: "planning", icon: "🔍",
+    title: "Competitive Analysis",
+    desc: "Competitor research, positioning, and opportunities",
+    bg: "from-sky-50 to-blue-50 dark:from-sky-900/20 dark:to-blue-900/20",
+    content: { type: "doc", content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Overview" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Why we're doing this analysis and what decisions it will inform." }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Competitor 1: [Name]" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Website: " }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Target audience: " }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Strengths: " }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Weaknesses: " }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Notable marketing tactics: " }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Competitor 2: [Name]" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Website: " }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Target audience: " }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Strengths: " }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Weaknesses: " }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Our Positioning" }] },
+      { type: "paragraph", content: [{ type: "text", text: "How do we differentiate? What is our unique value proposition?" }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Opportunities & Threats" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Opportunity: " }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Opportunity: " }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Threat: " }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Key Takeaways" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Takeaway 1" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Takeaway 2" }] }] },
+      ]},
+    ]},
+  },
+  {
+    id: "meeting-notes", category: "team", icon: "📝",
     title: "Meeting Notes",
-    desc: "Capture an agenda, notes, and action items",
-    bg: "from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30",
-    content: MEETING_NOTES_CONTENT,
+    desc: "Agenda, notes, and action items",
+    bg: "from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20",
+    content: { type: "doc", content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Agenda" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Topic 1" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Topic 2" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Notes" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Meeting notes go here..." }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Action Items" }] },
+      { type: "taskList", content: [
+        { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "Action item 1 — Owner" }] }] },
+        { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "Action item 2 — Owner" }] }] },
+      ]},
+    ]},
   },
   {
-    id: "guidelines",
-    icon: "📋",
+    id: "retrospective", category: "team", icon: "🔄",
+    title: "Sprint Retrospective",
+    desc: "What went well, blockers, and team shoutouts",
+    bg: "from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20",
+    content: { type: "doc", content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Sprint: [Name / Number]" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Date: ___  |  Team: ___" }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "What Went Well" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "..." }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "..." }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "What Didn't Go Well" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "..." }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "..." }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Action Items" }] },
+      { type: "taskList", content: [
+        { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "Action item 1 — Owner" }] }] },
+        { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "Action item 2 — Owner" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Team Shoutouts" }] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "..." }] }] },
+      ]},
+    ]},
+  },
+  {
+    id: "guidelines", category: "team", icon: "📋",
     title: "Guidelines",
-    desc: "Outline standards and best practices",
-    bg: "from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30",
-    content: GUIDELINES_CONTENT,
+    desc: "Standards, best practices, and do's and don'ts",
+    bg: "from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20",
+    content: { type: "doc", content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Purpose" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Explain the purpose of these guidelines..." }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Standards" }] },
+      { type: "orderedList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Standard 1" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Standard 2" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Standard 3" }] }] },
+      ]},
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Do's and Don'ts" }] },
+      { type: "paragraph", content: [{ type: "text", text: "List key do's and don'ts..." }] },
+    ]},
   },
 ];
 
@@ -130,6 +381,7 @@ export default function DocsPage() {
   const queryClient = useQueryClient();
   const { data: session } = useSession();
   const [showTemplates, setShowTemplates] = useState(true);
+  const [templateCategory, setTemplateCategory] = useState("all");
   const [search, setSearch] = useState("");
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [showNewMenu, setShowNewMenu] = useState(false);
@@ -326,8 +578,8 @@ export default function DocsPage() {
   );
 
   filtered = [...filtered].sort((a, b) => {
-    const cmp = sortField === "title"
-      ? a.title.localeCompare(b.title)
+    const cmp = sortField === "createdAt"
+      ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       : new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
     return sortDir === "asc" ? cmp : -cmp;
   });
@@ -379,42 +631,53 @@ export default function DocsPage() {
 
       {/* Templates section */}
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mr-1">Templates</span>
+          {TEMPLATE_CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => { setTemplateCategory(cat.id); setShowTemplates(true); }}
+              className={cn(
+                "px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                templateCategory === cat.id && showTemplates
+                  ? "bg-[#e8170b] text-white"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              {cat.label}
+            </button>
+          ))}
           <button
             onClick={() => setShowTemplates((v) => !v)}
-            className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Templates
-          </button>
-          <button
-            onClick={() => setShowTemplates((v) => !v)}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             {showTemplates ? "Hide" : "Show"}
           </button>
         </div>
 
         {showTemplates && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => createDoc.mutate({ title: t.title, content: t.content, icon: t.icon })}
-                disabled={createDoc.isPending}
-                className={cn(
-                  "flex items-center gap-4 p-4 rounded-2xl border border-border bg-gradient-to-br text-left hover:shadow-md transition-all hover:scale-[1.01] disabled:opacity-60",
-                  t.bg
-                )}
-              >
-                <div className="w-12 h-12 rounded-xl bg-white/60 dark:bg-white/10 flex items-center justify-center text-2xl flex-shrink-0 shadow-sm">
-                  {t.icon}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{t.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{t.desc}</p>
-                </div>
-              </button>
-            ))}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+            {TEMPLATES
+              .filter((t) => templateCategory === "all" || t.category === templateCategory)
+              .map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => createDoc.mutate({ title: t.title, content: t.content, icon: t.icon })}
+                  disabled={createDoc.isPending}
+                  className={cn(
+                    "flex flex-col gap-2.5 p-3 rounded-xl border border-border bg-gradient-to-br text-left hover:shadow-md transition-all hover:scale-[1.01] disabled:opacity-60 group",
+                    t.bg
+                  )}
+                >
+                  <div className="w-9 h-9 rounded-lg bg-white/70 dark:bg-white/10 flex items-center justify-center text-lg flex-shrink-0 shadow-sm">
+                    {t.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-foreground truncate">{t.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">{t.desc}</p>
+                  </div>
+                </button>
+              ))}
           </div>
         )}
       </div>
@@ -447,14 +710,13 @@ export default function DocsPage() {
           >
             <ArrowUpDown className="w-3.5 h-3.5" />
             Sort
-            {sortField === "title" ? " (A–Z)" : ""}
             {sortDir === "asc" ? " ↑" : " ↓"}
           </button>
           {showSortMenu && (
             <div className="absolute left-0 top-full mt-1 w-44 bg-background border border-border rounded-xl shadow-xl z-50 py-1">
               {([
+                { field: "createdAt" as SortField, label: "Date created" },
                 { field: "updatedAt" as SortField, label: "Date updated" },
-                { field: "title"     as SortField, label: "Title (A–Z)" },
               ] as const).map((o) => (
                 <button
                   key={o.field}
