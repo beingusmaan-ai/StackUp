@@ -14,43 +14,21 @@ import { cn, formatRelative } from "@/lib/utils";
 import { toast } from "sonner";
 import { ShareModal } from "@/components/docs/ShareModal";
 
-type FilterType = "title" | "location" | "createdBy" | "dateUpdated";
-type DocFilter =
-  | { type: "title"; value: string }
-  | { type: "location"; value: "has-project" | "has-task" | "no-location" }
-  | { type: "createdBy"; userId: string; name: string }
-  | { type: "dateUpdated"; days: number; label: string };
+type FilterField = "title" | "location" | "createdBy" | "dateUpdated";
+interface FilterRow { id: string; field: FilterField | ""; value: string }
 
 type SortField = "title" | "updatedAt";
 type SortDir = "asc" | "desc";
 
-const FILTER_OPTIONS: { type: FilterType; label: string; icon: React.ElementType }[] = [
-  { type: "title",       label: "Title",        icon: Type },
-  { type: "location",    label: "Location",     icon: MapPin },
-  { type: "createdBy",   label: "Created by",   icon: User },
-  { type: "dateUpdated", label: "Date updated", icon: Calendar },
+const FIELD_LABELS: Record<FilterField, string> = {
+  title: "Title", location: "Location", createdBy: "Created by", dateUpdated: "Date updated",
+};
+const DATE_OPTIONS = [
+  { value: "7",   label: "Last 7 days" },
+  { value: "30",  label: "Last 30 days" },
+  { value: "90",  label: "Last 90 days" },
+  { value: "180", label: "Last 6 months" },
 ];
-
-const LOCATION_OPTIONS = [
-  { value: "has-project" as const, label: "Has project" },
-  { value: "has-task"    as const, label: "Has task" },
-  { value: "no-location" as const, label: "No location" },
-];
-
-const DATE_OPTIONS: { days: number; label: string }[] = [
-  { days: 7,   label: "Last 7 days" },
-  { days: 30,  label: "Last 30 days" },
-  { days: 90,  label: "Last 90 days" },
-  { days: 180, label: "Last 6 months" },
-];
-
-function getFilterChipLabel(f: DocFilter): string {
-  if (f.type === "title")       return `Title: "${f.value}"`;
-  if (f.type === "location")    return `Location: ${LOCATION_OPTIONS.find(o => o.value === f.value)?.label ?? f.value}`;
-  if (f.type === "createdBy")   return `By: ${f.name}`;
-  if (f.type === "dateUpdated") return `Updated: ${f.label}`;
-  return "";
-}
 
 type Doc = {
   id: string;
@@ -160,15 +138,11 @@ export default function DocsPage() {
   const [moveSearch, setMoveSearch] = useState("");
 
   // Filter & sort state
-  const [activeFilters, setActiveFilters] = useState<DocFilter[]>([]);
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [filterStep, setFilterStep] = useState<"pick" | FilterType>("pick");
-  const [filterPickerSearch, setFilterPickerSearch] = useState("");
-  const [filterTitleInput, setFilterTitleInput] = useState("");
+  const [filterRows, setFilterRows] = useState<FilterRow[]>([]);
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [sortField, setSortField] = useState<SortField>("updatedAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [showSortMenu, setShowSortMenu] = useState(false);
-  const filterMenuRef = useRef<HTMLDivElement>(null);
   const sortMenuRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery({
@@ -269,31 +243,19 @@ export default function DocsPage() {
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) {
-        setShowFilterMenu(false); setFilterStep("pick"); setFilterPickerSearch(""); setFilterTitleInput("");
-      }
-    };
-    if (showFilterMenu) document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showFilterMenu]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
       if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)) setShowSortMenu(false);
     };
     if (showSortMenu) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showSortMenu]);
 
-  const addFilter = (f: DocFilter) => {
-    setActiveFilters((prev) => {
-      const withoutSame = prev.filter((x) => x.type !== f.type);
-      return [...withoutSame, f];
-    });
-    setShowFilterMenu(false); setFilterStep("pick"); setFilterPickerSearch(""); setFilterTitleInput("");
-  };
+  const addFilterRow = () =>
+    setFilterRows((prev) => [...prev, { id: Math.random().toString(36).slice(2), field: "", value: "" }]);
 
-  const removeFilter = (type: FilterType) => setActiveFilters((prev) => prev.filter((f) => f.type !== type));
+  const updateRow = (id: string, patch: Partial<FilterRow>) =>
+    setFilterRows((prev) => prev.map((r) => r.id === id ? { ...r, ...patch } : r));
+
+  const removeRow = (id: string) => setFilterRows((prev) => prev.filter((r) => r.id !== id));
 
   const uniqueCreators = useMemo(() => {
     const seen = new Map<string, { id: string; name: string }>();
@@ -304,22 +266,28 @@ export default function DocsPage() {
   const childCount = (id: string) => docs.filter((d) => d.parentId === id).length;
   const rootDocs = docs.filter((d) => !d.parentId);
 
+  const activeRowCount = filterRows.filter((r) => r.field && r.value).length;
+
   let filtered = (search
     ? docs.filter((d) => d.title.toLowerCase().includes(search.toLowerCase()))
     : rootDocs
   ).filter((doc) =>
-    activeFilters.every((f) => {
-      if (f.type === "title")       return doc.title.toLowerCase().includes(f.value.toLowerCase());
-      if (f.type === "location") {
-        if (f.value === "has-project")  return !!doc.campaign;
-        if (f.value === "has-task")     return !!doc.task;
-        if (f.value === "no-location")  return !doc.campaign && !doc.task;
+    filterRows.every((row) => {
+      if (!row.field || !row.value) return true;
+      if (row.field === "title")       return doc.title.toLowerCase().includes(row.value.toLowerCase());
+      if (row.field === "location") {
+        if (row.value === "has-project")  return !!doc.campaign;
+        if (row.value === "has-task")     return !!doc.task;
+        if (row.value === "no-location")  return !doc.campaign && !doc.task;
       }
-      if (f.type === "createdBy")   return doc.createdById === f.userId;
-      if (f.type === "dateUpdated") {
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - f.days);
-        return new Date(doc.updatedAt) >= cutoff;
+      if (row.field === "createdBy")   return doc.createdById === row.value;
+      if (row.field === "dateUpdated") {
+        const days = parseInt(row.value, 10);
+        if (!isNaN(days)) {
+          const cutoff = new Date();
+          cutoff.setDate(cutoff.getDate() - days);
+          return new Date(doc.updatedAt) >= cutoff;
+        }
       }
       return true;
     })
@@ -412,149 +380,27 @@ export default function DocsPage() {
         )}
       </div>
 
-      {/* Filter & sort bar */}
+      {/* Controls bar */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-
-        {/* Filters button */}
-        <div className="relative" ref={filterMenuRef}>
-          <button
-            onClick={() => { setShowFilterMenu((v) => !v); setFilterStep("pick"); }}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors",
-              activeFilters.length > 0
-                ? "border-[#e8170b] text-[#e8170b] bg-[#e8170b]/5"
-                : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-            )}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            Filters
-            {activeFilters.length > 0 && (
-              <span className="ml-0.5 min-w-[16px] h-[16px] bg-[#e8170b] text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1">
-                {activeFilters.length}
-              </span>
-            )}
-          </button>
-
-          {showFilterMenu && (
-            <div className="absolute left-0 top-full mt-1 w-56 bg-background border border-border rounded-xl shadow-xl z-50 overflow-hidden">
-              {filterStep === "pick" && (
-                <>
-                  <div className="px-3 pt-3 pb-2">
-                    <p className="text-xs font-bold text-foreground mb-1">Filters</p>
-                    <button
-                      className="text-xs text-[#e8170b] font-medium"
-                      onClick={() => setFilterStep("title")}
-                    >
-                      + Add filter
-                    </button>
-                  </div>
-                  <div className="px-2 pb-2">
-                    <input
-                      value={filterPickerSearch}
-                      onChange={(e) => setFilterPickerSearch(e.target.value)}
-                      placeholder="Search…"
-                      className="w-full px-2.5 py-1.5 text-xs bg-muted rounded-lg outline-none border border-border"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="pb-1">
-                    {FILTER_OPTIONS.filter((o) =>
-                      o.label.toLowerCase().includes(filterPickerSearch.toLowerCase())
-                    ).map((o) => (
-                      <button
-                        key={o.type}
-                        onClick={() => { setFilterStep(o.type); setFilterPickerSearch(""); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors text-left"
-                      >
-                        <o.icon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {filterStep === "title" && (
-                <div className="p-3">
-                  <p className="text-xs font-semibold text-foreground mb-2">Title contains</p>
-                  <input
-                    value={filterTitleInput}
-                    onChange={(e) => setFilterTitleInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && filterTitleInput.trim()) addFilter({ type: "title", value: filterTitleInput.trim() }); }}
-                    placeholder="Type to filter…"
-                    className="w-full px-2.5 py-1.5 text-xs bg-muted rounded-lg outline-none border border-border mb-2"
-                    autoFocus
-                  />
-                  <div className="flex gap-2">
-                    <button onClick={() => setFilterStep("pick")} className="flex-1 px-2 py-1 text-xs border border-border rounded-lg hover:bg-muted transition-colors">Back</button>
-                    <button
-                      onClick={() => { if (filterTitleInput.trim()) addFilter({ type: "title", value: filterTitleInput.trim() }); }}
-                      className="flex-1 px-2 py-1 text-xs bg-[#e8170b] text-white rounded-lg hover:bg-[#c91409] transition-colors"
-                    >
-                      Apply
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {filterStep === "location" && (
-                <div className="p-2">
-                  <p className="text-xs font-semibold text-foreground px-1 py-1">Location</p>
-                  {LOCATION_OPTIONS.map((o) => (
-                    <button
-                      key={o.value}
-                      onClick={() => addFilter({ type: "location", value: o.value })}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-foreground hover:bg-muted rounded-lg transition-colors text-left"
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-muted-foreground" /> {o.label}
-                    </button>
-                  ))}
-                  <button onClick={() => setFilterStep("pick")} className="w-full mt-1 px-2 py-1 text-xs text-muted-foreground hover:bg-muted rounded-lg transition-colors text-left">← Back</button>
-                </div>
-              )}
-
-              {filterStep === "createdBy" && (
-                <div className="p-2">
-                  <p className="text-xs font-semibold text-foreground px-1 py-1">Created by</p>
-                  <div className="max-h-44 overflow-y-auto">
-                    {uniqueCreators.map((u) => (
-                      <button
-                        key={u.id}
-                        onClick={() => addFilter({ type: "createdBy", userId: u.id, name: u.name })}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-foreground hover:bg-muted rounded-lg transition-colors text-left"
-                      >
-                        <span className="w-5 h-5 rounded-full bg-[#e8170b] text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0">
-                          {u.name[0]?.toUpperCase()}
-                        </span>
-                        {u.name}
-                      </button>
-                    ))}
-                    {uniqueCreators.length === 0 && <p className="text-xs text-muted-foreground px-2 py-1">No creators found</p>}
-                  </div>
-                  <button onClick={() => setFilterStep("pick")} className="w-full mt-1 px-2 py-1 text-xs text-muted-foreground hover:bg-muted rounded-lg transition-colors text-left">← Back</button>
-                </div>
-              )}
-
-              {filterStep === "dateUpdated" && (
-                <div className="p-2">
-                  <p className="text-xs font-semibold text-foreground px-1 py-1">Date updated</p>
-                  {DATE_OPTIONS.map((o) => (
-                    <button
-                      key={o.days}
-                      onClick={() => addFilter({ type: "dateUpdated", days: o.days, label: o.label })}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-foreground hover:bg-muted rounded-lg transition-colors text-left"
-                    >
-                      <Calendar className="w-3.5 h-3.5 text-muted-foreground" /> {o.label}
-                    </button>
-                  ))}
-                  <button onClick={() => setFilterStep("pick")} className="w-full mt-1 px-2 py-1 text-xs text-muted-foreground hover:bg-muted rounded-lg transition-colors text-left">← Back</button>
-                </div>
-              )}
-            </div>
+        <button
+          onClick={() => setShowFiltersPanel((v) => !v)}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors",
+            showFiltersPanel || activeRowCount > 0
+              ? "border-[#e8170b] text-[#e8170b] bg-[#e8170b]/5"
+              : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
           )}
-        </div>
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          Filters
+          {activeRowCount > 0 && (
+            <span className="ml-0.5 min-w-[16px] h-[16px] bg-[#e8170b] text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1">
+              {activeRowCount}
+            </span>
+          )}
+        </button>
 
-        {/* Sort button */}
+        {/* Sort */}
         <div className="relative" ref={sortMenuRef}>
           <button
             onClick={() => setShowSortMenu((v) => !v)}
@@ -562,6 +408,8 @@ export default function DocsPage() {
           >
             <ArrowUpDown className="w-3.5 h-3.5" />
             Sort
+            {sortField === "title" ? " (A–Z)" : ""}
+            {sortDir === "asc" ? " ↑" : " ↓"}
           </button>
           {showSortMenu && (
             <div className="absolute left-0 top-full mt-1 w-44 bg-background border border-border rounded-xl shadow-xl z-50 py-1">
@@ -573,46 +421,23 @@ export default function DocsPage() {
                   key={o.field}
                   onClick={() => {
                     if (sortField === o.field) setSortDir((d) => d === "asc" ? "desc" : "asc");
-                    else { setSortField(o.field); setSortDir("desc"); }
+                    else { setSortField(o.field); setSortDir("asc"); }
                     setShowSortMenu(false);
                   }}
                   className={cn(
-                    "w-full flex items-center justify-between px-3 py-1.5 text-xs transition-colors hover:bg-muted",
+                    "w-full flex items-center justify-between px-3 py-1.5 text-xs hover:bg-muted transition-colors",
                     sortField === o.field ? "text-[#e8170b] font-medium" : "text-foreground"
                   )}
                 >
                   {o.label}
-                  {sortField === o.field && (
-                    <span className="text-[10px] text-muted-foreground">{sortDir === "asc" ? "↑" : "↓"}</span>
-                  )}
+                  {sortField === o.field && <span className="text-[10px] text-muted-foreground">{sortDir === "asc" ? "↑" : "↓"}</span>}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Active filter chips */}
-        {activeFilters.map((f) => (
-          <span
-            key={f.type}
-            className="flex items-center gap-1 px-2.5 py-1 bg-[#e8170b]/8 border border-[#e8170b]/20 text-[#e8170b] rounded-full text-xs font-medium"
-          >
-            {getFilterChipLabel(f)}
-            <button onClick={() => removeFilter(f.type)} className="hover:text-red-700 ml-0.5">
-              <X className="w-3 h-3" />
-            </button>
-          </span>
-        ))}
-        {activeFilters.length > 0 && (
-          <button
-            onClick={() => setActiveFilters([])}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Clear all
-          </button>
-        )}
-
-        {/* Right side: count + search */}
+        {/* Count + search (right) */}
         <div className="ml-auto flex items-center gap-2">
           <span className="text-xs text-muted-foreground font-medium">
             {filtered.length} doc{filtered.length !== 1 ? "s" : ""}
@@ -628,6 +453,110 @@ export default function DocsPage() {
           </div>
         </div>
       </div>
+
+      {/* Filters panel */}
+      {showFiltersPanel && (
+        <div className="mb-4 bg-background border border-border rounded-xl shadow-sm p-4">
+          <p className="text-sm font-bold text-foreground mb-3">Filters</p>
+
+          {filterRows.length === 0 && (
+            <p className="text-xs text-muted-foreground mb-3">No filters yet. Click "+ Add filter" to start.</p>
+          )}
+
+          <div className="space-y-2">
+            {filterRows.map((row) => (
+              <div key={row.id} className="flex items-center gap-2">
+
+                {/* Field */}
+                <select
+                  value={row.field}
+                  onChange={(e) => updateRow(row.id, { field: e.target.value as FilterField | "", value: "" })}
+                  className="px-2.5 py-1.5 text-xs bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-[#e8170b] w-36 cursor-pointer"
+                >
+                  <option value="">Select field…</option>
+                  {(Object.keys(FIELD_LABELS) as FilterField[]).map((f) => (
+                    <option key={f} value={f}>{FIELD_LABELS[f]}</option>
+                  ))}
+                </select>
+
+                {/* Operator */}
+                <select
+                  className="px-2.5 py-1.5 text-xs bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-[#e8170b] w-16 cursor-pointer"
+                  defaultValue="is"
+                >
+                  <option value="is">Is</option>
+                </select>
+
+                {/* Value */}
+                {(!row.field) && (
+                  <select disabled className="flex-1 px-2.5 py-1.5 text-xs bg-muted border border-border rounded-lg text-muted-foreground cursor-not-allowed">
+                    <option>Select value…</option>
+                  </select>
+                )}
+                {row.field === "title" && (
+                  <input
+                    value={row.value}
+                    onChange={(e) => updateRow(row.id, { value: e.target.value })}
+                    placeholder="Enter title…"
+                    className="flex-1 px-2.5 py-1.5 text-xs bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-[#e8170b]"
+                  />
+                )}
+                {row.field === "location" && (
+                  <select
+                    value={row.value}
+                    onChange={(e) => updateRow(row.id, { value: e.target.value })}
+                    className="flex-1 px-2.5 py-1.5 text-xs bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-[#e8170b] cursor-pointer"
+                  >
+                    <option value="">Select location…</option>
+                    <option value="has-project">Has project</option>
+                    <option value="has-task">Has task</option>
+                    <option value="no-location">No location</option>
+                  </select>
+                )}
+                {row.field === "createdBy" && (
+                  <select
+                    value={row.value}
+                    onChange={(e) => updateRow(row.id, { value: e.target.value })}
+                    className="flex-1 px-2.5 py-1.5 text-xs bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-[#e8170b] cursor-pointer"
+                  >
+                    <option value="">Select person…</option>
+                    {uniqueCreators.map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                )}
+                {row.field === "dateUpdated" && (
+                  <select
+                    value={row.value}
+                    onChange={(e) => updateRow(row.id, { value: e.target.value })}
+                    className="flex-1 px-2.5 py-1.5 text-xs bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-[#e8170b] cursor-pointer"
+                  >
+                    <option value="">Select period…</option>
+                    {DATE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Delete row */}
+                <button
+                  onClick={() => removeRow(row.id)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={addFilterRow}
+            className="mt-3 text-xs text-[#e8170b] font-medium hover:underline"
+          >
+            + Add filter
+          </button>
+        </div>
+      )}
 
       {/* Docs table */}
       <div className="bg-card border border-border rounded-2xl">
