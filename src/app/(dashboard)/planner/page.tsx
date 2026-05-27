@@ -158,7 +158,25 @@ function ProviderBadge({ syncSource }: { syncSource?: string | null }) {
   );
 }
 
-function EventBlock({ event, onClick }: { event: CalendarEvent; onClick: (e: React.MouseEvent) => void }) {
+function DragPreviewBlock({ startTime, endTime, color }: { startTime: Date; endTime: Date; color: string }) {
+  const top    = startTime.getHours() * HOUR_HEIGHT + (startTime.getMinutes() / 60) * HOUR_HEIGHT;
+  const bottom = endTime.getHours()   * HOUR_HEIGHT + (endTime.getMinutes()   / 60) * HOUR_HEIGHT;
+  const height = Math.max(bottom - top, 22);
+  return (
+    <div
+      className="absolute left-1 right-1 rounded-lg border-2 border-dashed pointer-events-none z-20"
+      style={{ top, height, borderColor: color, backgroundColor: color + "22" }}
+    />
+  );
+}
+
+function EventBlock({ event, isDragging, onMouseDown, onResizeMouseDown, onClick }: {
+  event: CalendarEvent;
+  isDragging: boolean;
+  onMouseDown: (e: React.MouseEvent) => void;
+  onResizeMouseDown: (e: React.MouseEvent) => void;
+  onClick: () => void;
+}) {
   const start  = new Date(event.startTime);
   const end    = new Date(event.endTime);
   const top    = start.getHours() * HOUR_HEIGHT + (start.getMinutes() / 60) * HOUR_HEIGHT;
@@ -168,8 +186,9 @@ function EventBlock({ event, onClick }: { event: CalendarEvent; onClick: (e: Rea
 
   return (
     <div
-      className="absolute left-1 right-1 rounded-lg overflow-hidden cursor-pointer select-none z-10 group transition-all hover:brightness-110 active:scale-[0.98]"
-      style={{ top, height, backgroundColor: color + "e6" }}
+      className="absolute left-1 right-1 rounded-lg overflow-hidden select-none z-10 group"
+      style={{ top, height, backgroundColor: color + "e6", opacity: isDragging ? 0.35 : 1, cursor: "grab" }}
+      onMouseDown={onMouseDown}
       onClick={onClick}
     >
       <div className="absolute inset-y-0 left-0 w-1 rounded-l-lg" style={{ backgroundColor: color }} />
@@ -183,23 +202,118 @@ function EventBlock({ event, onClick }: { event: CalendarEvent; onClick: (e: Rea
           <p className="text-[10px] text-white/60 mt-0.5 line-clamp-2 leading-tight">{event.description}</p>
         )}
       </div>
+      {/* Resize handle */}
+      {height >= 28 && (
+        <div
+          className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          onMouseDown={(e) => { e.stopPropagation(); onResizeMouseDown(e); }}
+        >
+          <div className="w-6 h-0.5 rounded-full bg-white/60" />
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── WeekDayGrid ─────────────────────────────────────────────────────────────
 
-function WeekDayGrid({ days, events, onSlotClick, onEventClick }: {
+function WeekDayGrid({ days, events, onSlotClick, onEventClick, onEventUpdate }: {
   days: Date[];
   events: CalendarEvent[];
   onSlotClick: (date: Date, hour: number, minute: number) => void;
   onEventClick: (event: CalendarEvent) => void;
+  onEventUpdate: (id: string, startTime: string, endTime: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Drag state in refs to avoid stale closures in global listeners
+  const dragRef  = useRef<{ event: CalendarEvent; offsetMinutes: number; startX: number; startY: number; moved: boolean } | null>(null);
+  const resizeRef = useRef<{ event: CalendarEvent; anchorY: number; originalEndMinutes: number } | null>(null);
+  const [dragPreview,   setDragPreview]   = useState<{ startTime: Date; endTime: Date; colIndex: number } | null>(null);
+  const [draggingId,    setDraggingId]    = useState<string | null>(null);
+  const justDraggedRef = useRef(false);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 7 * HOUR_HEIGHT;
   }, []);
+
+  const getPositionInGrid = useCallback((clientX: number, clientY: number) => {
+    const el = scrollRef.current;
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    const y = clientY - rect.top + el.scrollTop;
+    const labelW = 64;
+    const colW   = (el.clientWidth - labelW) / days.length;
+    const colIdx = Math.max(0, Math.min(days.length - 1, Math.floor((clientX - rect.left - labelW) / colW)));
+    const rawMin = (y / HOUR_HEIGHT) * 60;
+    const snapped = Math.round(rawMin / 15) * 15;
+    return { minutes: Math.max(0, Math.min(23 * 60 + 45, snapped)), colIdx };
+  }, [days]);
+
+  // Attach global listeners when dragging or resizing
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (dragRef.current) {
+        const d = dragRef.current;
+        const dx = e.clientX - d.startX, dy = e.clientY - d.startY;
+        if (!d.moved && Math.sqrt(dx*dx + dy*dy) > 5) { d.moved = true; setDraggingId(d.event.id); }
+        if (!d.moved) return;
+
+        const pos = getPositionInGrid(e.clientX, e.clientY);
+        if (!pos) return;
+        const duration = new Date(d.event.endTime).getTime() - new Date(d.event.startTime).getTime();
+        const startMin = Math.max(0, Math.min(23 * 60 + 45, pos.minutes - d.offsetMinutes));
+        const start = new Date(days[pos.colIdx]);
+        start.setHours(Math.floor(startMin / 60), startMin % 60, 0, 0);
+        const end = new Date(start.getTime() + duration);
+        setDragPreview({ startTime: start, endTime: end, colIndex: pos.colIdx });
+      }
+
+      if (resizeRef.current) {
+        const r = resizeRef.current;
+        const el = scrollRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const y = e.clientY - rect.top + el.scrollTop;
+        const deltaMin = ((y - r.anchorY) / HOUR_HEIGHT) * 60;
+        const startMin = new Date(r.event.startTime).getHours() * 60 + new Date(r.event.startTime).getMinutes();
+        const rawEnd   = r.originalEndMinutes + deltaMin;
+        const endMin   = Math.max(startMin + 15, Math.min(24 * 60, Math.round(rawEnd / 15) * 15));
+        const start    = new Date(r.event.startTime);
+        const end      = new Date(start); end.setHours(Math.floor(endMin / 60), endMin % 60, 0, 0);
+        const colIdx   = days.findIndex((d) => isSameDay(d, start));
+        setDragPreview({ startTime: start, endTime: end, colIndex: Math.max(0, colIdx) });
+      }
+    };
+
+    const onUp = () => {
+      if (dragRef.current) {
+        const d = dragRef.current;
+        if (d.moved && dragPreview) {
+          onEventUpdate(d.event.id, dragPreview.startTime.toISOString(), dragPreview.endTime.toISOString());
+          justDraggedRef.current = true;
+          setTimeout(() => { justDraggedRef.current = false; }, 100);
+        } else if (!d.moved) {
+          onEventClick(d.event);
+        }
+        dragRef.current = null;
+        setDraggingId(null);
+        setDragPreview(null);
+      }
+      if (resizeRef.current) {
+        if (dragPreview) onEventUpdate(resizeRef.current.event.id, dragPreview.startTime.toISOString(), dragPreview.endTime.toISOString());
+        resizeRef.current = null;
+        setDragPreview(null);
+      }
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup",   onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup",   onUp);
+    };
+  }, [days, dragPreview, getPositionInGrid, onEventClick, onEventUpdate]);
 
   const eventsForDay = useCallback(
     (day: Date) => events.filter((e) => !e.allDay && isSameDay(new Date(e.startTime), day)),
@@ -207,6 +321,7 @@ function WeekDayGrid({ days, events, onSlotClick, onEventClick }: {
   );
 
   const handleColClick = (e: React.MouseEvent<HTMLDivElement>, day: Date) => {
+    if (justDraggedRef.current) return;
     const el = scrollRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -217,7 +332,7 @@ function WeekDayGrid({ days, events, onSlotClick, onEventClick }: {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden" style={{ userSelect: draggingId ? "none" : undefined }}>
       {/* Day header row */}
       <div className="flex-shrink-0 flex border-b border-border bg-background/95 backdrop-blur-sm">
         <div className="w-16 flex-shrink-0 border-r border-border/40" />
@@ -304,11 +419,38 @@ function WeekDayGrid({ days, events, onSlotClick, onEventClick }: {
                   onClick={(e) => handleColClick(e, day)}
                 >
                   {isToday(day) && <CurrentTimeLine />}
+                  {/* Drag preview in this column */}
+                  {dragPreview && dragPreview.colIndex === i && (
+                    <DragPreviewBlock
+                      startTime={dragPreview.startTime}
+                      endTime={dragPreview.endTime}
+                      color={draggingId ? (events.find(ev => ev.id === draggingId)?.color ?? TYPE_CONFIG[events.find(ev => ev.id === draggingId)?.type ?? "MEETING"]?.color ?? "#3b82f6") : "#3b82f6"}
+                    />
+                  )}
                   {eventsForDay(day).map((ev) => (
                     <EventBlock
                       key={ev.id}
                       event={ev}
-                      onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
+                      isDragging={draggingId === ev.id}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        const el = scrollRef.current;
+                        if (!el) return;
+                        const rect = el.getBoundingClientRect();
+                        const y = e.clientY - rect.top + el.scrollTop;
+                        const clickMin = (y / HOUR_HEIGHT) * 60;
+                        const startMin = new Date(ev.startTime).getHours() * 60 + new Date(ev.startTime).getMinutes();
+                        dragRef.current = { event: ev, offsetMinutes: clickMin - startMin, startX: e.clientX, startY: e.clientY, moved: false };
+                      }}
+                      onResizeMouseDown={(e) => {
+                        const el = scrollRef.current;
+                        if (!el) return;
+                        const rect = el.getBoundingClientRect();
+                        const anchorY = e.clientY - rect.top + el.scrollTop;
+                        const end = new Date(ev.endTime);
+                        resizeRef.current = { event: ev, anchorY, originalEndMinutes: end.getHours() * 60 + end.getMinutes() };
+                      }}
+                      onClick={() => { /* handled in mouseup */ }}
                     />
                   ))}
                 </div>
@@ -932,7 +1074,13 @@ export default function PlannerPage() {
           ) : view === "month" ? (
             <MonthView currentDate={currentDate} events={events} onDayClick={(d) => { setCurrentDate(d); setView("day"); }} onEventClick={openEdit} />
           ) : (
-            <WeekDayGrid days={weekDays} events={events} onSlotClick={openNew} onEventClick={openEdit} />
+            <WeekDayGrid
+            days={weekDays}
+            events={events}
+            onSlotClick={openNew}
+            onEventClick={openEdit}
+            onEventUpdate={(id, startTime, endTime) => updateEvent.mutate({ id, title: events.find(e => e.id === id)?.title ?? "", type: events.find(e => e.id === id)?.type ?? "MEETING", allDay: events.find(e => e.id === id)?.allDay ?? false, startTime, endTime, description: events.find(e => e.id === id)?.description ?? null, color: events.find(e => e.id === id)?.color ?? null, taskId: events.find(e => e.id === id)?.taskId ?? null })}
+          />
           )}
         </div>
       </div>
