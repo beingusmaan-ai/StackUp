@@ -381,7 +381,6 @@ export default function DocsPage() {
   const queryClient = useQueryClient();
   const { data: session } = useSession();
   const [showTemplates, setShowTemplates] = useState(true);
-  const [templateCategory, setTemplateCategory] = useState("all");
   const [search, setSearch] = useState("");
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [showNewMenu, setShowNewMenu] = useState(false);
@@ -607,7 +606,9 @@ export default function DocsPage() {
                 >
                   <FileText className="w-4 h-4 text-[#e8170b]" /> Blank page
                 </button>
-                {TEMPLATES.map((t) => (
+                <div className="my-1 border-t border-border" />
+                <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Use Template</p>
+                {TEMPLATES.slice(3).map((t) => (
                   <button
                     key={t.id}
                     onClick={() => { setShowNewMenu(false); createDoc.mutate({ title: t.title, content: t.content, icon: t.icon }); }}
@@ -631,53 +632,37 @@ export default function DocsPage() {
 
       {/* Templates section */}
       <div className="mb-6">
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mr-1">Templates</span>
-          {TEMPLATE_CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => { setTemplateCategory(cat.id); setShowTemplates(true); }}
-              className={cn(
-                "px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
-                templateCategory === cat.id && showTemplates
-                  ? "bg-[#e8170b] text-white"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
-            >
-              {cat.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 mb-3">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Templates</span>
           <button
             onClick={() => setShowTemplates((v) => !v)}
-            className="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             {showTemplates ? "Hide" : "Show"}
           </button>
         </div>
 
         {showTemplates && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-            {TEMPLATES
-              .filter((t) => templateCategory === "all" || t.category === templateCategory)
-              .map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => createDoc.mutate({ title: t.title, content: t.content, icon: t.icon })}
-                  disabled={createDoc.isPending}
-                  className={cn(
-                    "flex flex-col gap-2.5 p-3 rounded-xl border border-border bg-gradient-to-br text-left hover:shadow-md transition-all hover:scale-[1.01] disabled:opacity-60 group",
-                    t.bg
-                  )}
-                >
-                  <div className="w-9 h-9 rounded-lg bg-white/70 dark:bg-white/10 flex items-center justify-center text-lg flex-shrink-0 shadow-sm">
-                    {t.icon}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-foreground truncate">{t.title}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">{t.desc}</p>
-                  </div>
-                </button>
-              ))}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {TEMPLATES.slice(0, 3).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => createDoc.mutate({ title: t.title, content: t.content, icon: t.icon })}
+                disabled={createDoc.isPending}
+                className={cn(
+                  "flex items-center gap-4 p-4 rounded-2xl border border-border bg-gradient-to-br text-left hover:shadow-md transition-all hover:scale-[1.01] disabled:opacity-60",
+                  t.bg
+                )}
+              >
+                <div className="w-12 h-12 rounded-xl bg-white/60 dark:bg-white/10 flex items-center justify-center text-2xl flex-shrink-0 shadow-sm">
+                  {t.icon}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{t.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{t.desc}</p>
+                </div>
+              </button>
+            ))}
           </div>
         )}
       </div>
