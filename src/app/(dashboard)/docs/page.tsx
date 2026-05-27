@@ -21,7 +21,7 @@ type SortField = "title" | "updatedAt";
 type SortDir = "asc" | "desc";
 
 const FIELD_LABELS: Record<FilterField, string> = {
-  title: "Title", location: "Location", createdBy: "Created by", dateUpdated: "Date updated",
+  title: "Title", location: "Projects", createdBy: "Created by", dateUpdated: "Date updated",
 };
 const DATE_OPTIONS = [
   { value: "7",   label: "Last 7 days" },
@@ -298,8 +298,7 @@ export default function DocsPage() {
       if (row.field === "title")       return doc.title.toLowerCase().includes(row.value.toLowerCase());
       if (row.field === "location") {
         if (row.value === "has-project")  return !!doc.campaign;
-        if (row.value === "has-task")     return !!doc.task;
-        if (row.value === "no-location")  return !doc.campaign && !doc.task;
+        if (row.value === "no-location")  return !doc.campaign;
       }
       if (row.field === "createdBy")   return doc.createdById === row.value;
       if (row.field === "dateUpdated") {
@@ -535,10 +534,9 @@ export default function DocsPage() {
                     onChange={(e) => updateRow(row.id, { value: e.target.value })}
                     className="flex-1 px-2.5 py-1.5 text-xs bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-[#e8170b] cursor-pointer"
                   >
-                    <option value="">Select location…</option>
+                    <option value="">Select project…</option>
                     <option value="has-project">Has project</option>
-                    <option value="has-task">Has task</option>
-                    <option value="no-location">No location</option>
+                    <option value="no-location">No project</option>
                   </select>
                 )}
                 {row.field === "createdBy" && (
