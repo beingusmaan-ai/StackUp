@@ -14,20 +14,23 @@ import { cn, formatRelative } from "@/lib/utils";
 import { toast } from "sonner";
 import { ShareModal } from "@/components/docs/ShareModal";
 
-type FilterField = "title" | "location" | "createdBy" | "dateUpdated";
+type FilterField = "title" | "location" | "createdBy" | "dateUpdated" | "dateCreated";
 interface FilterRow { id: string; field: FilterField | ""; value: string }
 
 type SortField = "title" | "updatedAt";
 type SortDir = "asc" | "desc";
 
 const FIELD_LABELS: Record<FilterField, string> = {
-  title: "Title", location: "Projects", createdBy: "Created by", dateUpdated: "Date updated",
+  title: "Title", location: "Projects", createdBy: "Created by",
+  dateUpdated: "Date updated", dateCreated: "Date created",
 };
+
 const DATE_OPTIONS = [
-  { value: "7",   label: "Last 7 days" },
-  { value: "30",  label: "Last 30 days" },
-  { value: "90",  label: "Last 90 days" },
-  { value: "180", label: "Last 6 months" },
+  { value: "today",     label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "7",         label: "Last 7 days" },
+  { value: "30",        label: "Last 30 days" },
+  { value: "90",        label: "Last 3 months" },
 ];
 
 type Doc = {
@@ -309,13 +312,14 @@ export default function DocsPage() {
         return doc.campaign?.id === row.value;
       }
       if (row.field === "createdBy")   return doc.createdById === row.value;
-      if (row.field === "dateUpdated") {
+      if (row.field === "dateUpdated" || row.field === "dateCreated") {
+        const docDate = new Date(row.field === "dateUpdated" ? doc.updatedAt : doc.createdAt);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+        if (row.value === "today")     return docDate >= today;
+        if (row.value === "yesterday") return docDate >= yesterday && docDate < today;
         const days = parseInt(row.value, 10);
-        if (!isNaN(days)) {
-          const cutoff = new Date();
-          cutoff.setDate(cutoff.getDate() - days);
-          return new Date(doc.updatedAt) >= cutoff;
-        }
+        if (!isNaN(days)) { const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days); return docDate >= cutoff; }
       }
       return true;
     })
@@ -560,7 +564,7 @@ export default function DocsPage() {
                     ))}
                   </select>
                 )}
-                {row.field === "dateUpdated" && (
+                {(row.field === "dateUpdated" || row.field === "dateCreated") && (
                   <select
                     value={row.value}
                     onChange={(e) => updateRow(row.id, { value: e.target.value })}
