@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { cn, getInitials } from "@/lib/utils";
 import {
-  LayoutDashboard, Megaphone, CalendarDays,
+  LayoutDashboard, Megaphone, CalendarDays, CalendarClock,
   Users, BarChart3, Bell, Settings, LogOut,
   ChevronLeft, ChevronRight, Plus,
   Clock, BarChart2, ChevronDown, Layers, TrendingUp, AlertTriangle, CheckSquare, MessageSquare, AtSign, BookOpen,
@@ -30,6 +30,7 @@ const NAV_GROUPS = [
       { href: "/campaigns",          label: "Projects",      icon: Megaphone, hasProjectsSub: true },
       { href: "/tasks",         label: "Tasks",         icon: CheckSquare },
       { href: "/calendar",      label: "Calendar",      icon: CalendarDays },
+      { href: "/planner",       label: "Planner",       icon: CalendarClock },
       { href: "/workload",      label: "Workload",      icon: BarChart2 },
       { href: "/templates",     label: "Templates",     icon: Layers },
     ],
