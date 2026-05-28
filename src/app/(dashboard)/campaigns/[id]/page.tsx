@@ -587,7 +587,7 @@ export default function CampaignDetailPage() {
       {/* Workspace: sidebar + content */}
       <div
         className="flex bg-card border border-border rounded-2xl overflow-hidden"
-        style={{ minHeight: 480 }}
+        style={{ height: "calc(100vh - 320px)", minHeight: 520 }}
       >
         {/* Sidebar */}
         <div className="w-56 border-r border-border flex flex-col flex-shrink-0">
@@ -882,7 +882,7 @@ export default function CampaignDetailPage() {
                             <ExternalLink className="w-3 h-3" /> Open in new tab
                           </a>
                         </div>
-                        <iframe src={embed.url} className="flex-1 w-full border-0" allow="fullscreen" title={embed.name} />
+                        <iframe src={embed.url} className="w-full border-0" style={{ flex: 1, minHeight: 0, height: "100%" }} allow="fullscreen" title={embed.name} />
                       </div>
                     ) : null;
                   })()
