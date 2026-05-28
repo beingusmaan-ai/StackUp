@@ -83,6 +83,7 @@ const FIELD_DEFS: FieldDef[] = [
     key: "dueDate",
     label: "Due date",
     operators: [
+      { key: "is",           label: "Is" },
       { key: "before",       label: "Before" },
       { key: "after",        label: "After" },
       { key: "is_empty",     label: "Is empty" },
@@ -411,10 +412,13 @@ export function applyFilters<T extends {
         if (f.operator === "is_empty")     return !task.dueDate;
         if (f.operator === "is_not_empty") return !!task.dueDate;
         if (!task.dueDate || !f.values[0]) return false;
-        const td = new Date(task.dueDate).getTime();
-        const fd = new Date(f.values[0]).getTime();
-        if (f.operator === "before") return td < fd;
-        if (f.operator === "after")  return td > fd;
+        const td = new Date(task.dueDate).toDateString();
+        const fd = new Date(f.values[0]).toDateString();
+        const tdMs = new Date(task.dueDate).getTime();
+        const fdMs = new Date(f.values[0]).getTime();
+        if (f.operator === "is")     return td === fd;
+        if (f.operator === "before") return tdMs < fdMs;
+        if (f.operator === "after")  return tdMs > fdMs;
       }
       return true;
     })
