@@ -206,17 +206,21 @@ ${context}`;
 
     } else if (model.startsWith("google/")) {
       const geminiModel = model.replace("google/", "");
-      const geminiMessages = chatMessages.map((m) => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: [{ text: m.content }],
-      }));
+      // v1 doesn't support systemInstruction — inject context as a leading user/model exchange
+      const geminiMessages = [
+        { role: "user",  parts: [{ text: systemContent }] },
+        { role: "model", parts: [{ text: "Understood. I have the workspace data and will answer based on it." }] },
+        ...chatMessages.map((m) => ({
+          role: m.role === "user" ? "user" : "model",
+          parts: [{ text: m.content }],
+        })),
+      ];
       const geminiRes = await fetch(
         `https://generativelanguage.googleapis.com/v1/models/${geminiModel}:generateContent?key=${process.env.GOOGLE_GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemContent }] },
             contents: geminiMessages,
             generationConfig: { maxOutputTokens: 2048 },
           }),
