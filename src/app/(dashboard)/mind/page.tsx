@@ -3,13 +3,14 @@
 import { useState, useRef, useEffect } from "react";
 import {
   Sparkles, Send, User, Loader2, Plus,
-  Search, Bell, FileText, RotateCcw, Clipboard, ChevronDown, Check,
+  Search, Bell, FileText, RotateCcw, Clipboard, ChevronDown, Check, Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/ui-store";
 import { toast } from "sonner";
 import type { AIModel } from "@/lib/ai-models";
 import { PROVIDER_ICONS } from "@/lib/ai-models";
+import { AgentsTab } from "@/components/ai/AgentsTab";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,7 +83,7 @@ export default function MindPage() {
   const [messages, setMessages]     = useState<Message[]>([]);
   const [input, setInput]           = useState("");
   const [loading, setLoading]       = useState(false);
-  const [activeTab, setActiveTab]   = useState<"ask" | "templates">("ask");
+  const [activeTab, setActiveTab]   = useState<"ask" | "agents" | "templates">("ask");
   const [models, setModels]         = useState<AIModel[]>([]);
   const [selectedModel, setSelectedModel] = useState("groq/llama-3.3-70b-versatile");
   const [showModelPicker, setShowModelPicker] = useState(false);
@@ -247,7 +248,7 @@ export default function MindPage() {
             <button
               onClick={() => setActiveTab("ask")}
               className={cn(
-                "flex items-center gap-1.5 px-5 py-1.5 rounded-lg text-sm font-medium transition-all",
+                "flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
                 activeTab === "ask"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -257,9 +258,21 @@ export default function MindPage() {
               Ask
             </button>
             <button
+              onClick={() => setActiveTab("agents")}
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
+                activeTab === "agents"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Bot className="w-3.5 h-3.5" />
+              Agents
+            </button>
+            <button
               onClick={() => setActiveTab("templates")}
               className={cn(
-                "flex items-center gap-1.5 px-5 py-1.5 rounded-lg text-sm font-medium transition-all",
+                "flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
                 activeTab === "templates"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -270,7 +283,9 @@ export default function MindPage() {
             </button>
           </div>
 
-          {activeTab === "ask" ? (
+          {activeTab === "agents" ? (
+            <AgentsTab />
+          ) : activeTab === "ask" ? (
             <>
               {/* Input box */}
               <div className="w-full max-w-2xl">
