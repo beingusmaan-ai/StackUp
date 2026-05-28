@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Megaphone, CalendarDays, CalendarClock,
   Users, BarChart3, Bell, Settings, LogOut,
   ChevronLeft, ChevronRight, Plus,
-  Clock, BarChart2, ChevronDown, Layers, TrendingUp, AlertTriangle, CheckSquare, MessageSquare, AtSign, BookOpen,
+  Clock, BarChart2, ChevronDown, Layers, TrendingUp, AlertTriangle, CheckSquare, MessageSquare, AtSign, BookOpen, Sparkles,
 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
 import { useEffect, useRef, useState } from "react";
@@ -27,6 +27,7 @@ const NAV_GROUPS = [
       { href: "/messages",           label: "Messages",      icon: MessageSquare },
       { href: "/assigned-comments",  label: "Comments",      icon: AtSign },
       { href: "/docs",               label: "Docs",          icon: BookOpen },
+      { href: "/mind",               label: "StackUp Mind",  icon: Sparkles },
       { href: "/campaigns",          label: "Projects",      icon: Megaphone, hasProjectsSub: true },
       { href: "/tasks",         label: "Tasks",         icon: CheckSquare },
       { href: "/calendar",      label: "Calendar",      icon: CalendarDays },
