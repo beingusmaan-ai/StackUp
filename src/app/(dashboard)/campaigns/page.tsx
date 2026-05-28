@@ -29,16 +29,13 @@ interface Campaign {
 
 export default function CampaignsPage() {
   const [showForm, setShowForm] = useState(false);
-  const { activeTeamId, activeWorkspaceId } = useUIStore();
+  const { activeTeamId } = useUIStore();
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["campaigns", activeWorkspaceId, activeTeamId],
+    queryKey: ["campaigns"],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (activeWorkspaceId) params.set("workspaceId", activeWorkspaceId);
-      if (activeTeamId) params.set("departmentId", activeTeamId);
-      const res = await fetch(`/api/campaigns?${params}`);
+      const res = await fetch(`/api/campaigns`);
       return res.json();
     },
   });
