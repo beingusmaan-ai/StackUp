@@ -28,7 +28,7 @@ const NAV_GROUPS = [
       { href: "/assigned-comments",  label: "Comments",      icon: AtSign },
       { href: "/docs",               label: "Docs",          icon: BookOpen },
       { href: "/mind",               label: "StackUp Mind",  icon: Sparkles },
-      { href: "/campaigns",          label: "Projects",      icon: Megaphone, hasProjectsSub: true },
+      { href: "/campaigns",          label: "Projects",      icon: Megaphone },
       { href: "/tasks",         label: "Tasks",         icon: CheckSquare },
       { href: "/calendar",      label: "Calendar",      icon: CalendarDays },
       { href: "/planner",       label: "Planner",       icon: CalendarClock },
