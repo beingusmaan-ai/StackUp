@@ -18,8 +18,10 @@ export const ALL_MODELS: AIModel[] = [
   { id: "anthropic/claude-sonnet-4-6",   name: "Claude Sonnet 4.6",provider: "Anthropic", description: "Balanced",            envKey: "ANTHROPIC_API_KEY" },
   { id: "anthropic/claude-haiku-4-5-20251001", name: "Claude Haiku 4.5", provider: "Anthropic", description: "Fastest Claude", envKey: "ANTHROPIC_API_KEY" },
   // Google
-  { id: "google/gemini-1.5-flash",       name: "Gemini 1.5 Flash", provider: "Google",    description: "Fast & free",         envKey: "GOOGLE_GEMINI_API_KEY" },
-  { id: "google/gemini-1.5-pro",         name: "Gemini 1.5 Pro",   provider: "Google",    description: "Advanced reasoning",  envKey: "GOOGLE_GEMINI_API_KEY" },
+  { id: "google/gemini-2.5-flash",       name: "Gemini 2.5 Flash", provider: "Google",    description: "Fast & smart",        envKey: "GOOGLE_GEMINI_API_KEY" },
+  { id: "google/gemini-2.5-pro",         name: "Gemini 2.5 Pro",   provider: "Google",    description: "Most capable",        envKey: "GOOGLE_GEMINI_API_KEY" },
+  { id: "google/gemini-2.0-flash",       name: "Gemini 2.0 Flash", provider: "Google",    description: "Fast & efficient",    envKey: "GOOGLE_GEMINI_API_KEY" },
+  { id: "google/gemini-3.5-flash",       name: "Gemini 3.5 Flash", provider: "Google",    description: "Latest generation",   envKey: "GOOGLE_GEMINI_API_KEY" },
 ];
 
 export const PROVIDER_ICONS: Record<string, string> = {
