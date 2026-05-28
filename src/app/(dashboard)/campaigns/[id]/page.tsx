@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Target, Calendar, TrendingUp, Plus,
   BookTemplate, Edit2, List, LayoutGrid, GanttChart, Trash2, FileText,
@@ -114,6 +114,7 @@ export default function CampaignDetailPage() {
   const [selectedListId, setSelectedListId] = useState<string | null>(
     searchParams.get("list")
   );
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -175,9 +176,10 @@ export default function CampaignDetailPage() {
         return next;
       });
       if (!didAutoSelect.current && !searchParams.get("list")) {
-        const first = folders[0]?.lists?.[0];
-        if (first) {
-          setSelectedListId(first.id);
+        const firstFolder = folders[0];
+        if (firstFolder) {
+          setSelectedFolderId(firstFolder.id);
+          setSelectedListId(null);
           didAutoSelect.current = true;
         }
       }
@@ -195,6 +197,22 @@ export default function CampaignDetailPage() {
     enabled: !!selectedListId,
   });
   const currentList: ListDetail | undefined = listData?.data;
+
+  const selectedFolder = folders.find((f) => f.id === selectedFolderId);
+  const folderListQueries = useQueries({
+    queries: (selectedFolderId && !selectedListId ? selectedFolder?.lists ?? [] : []).map((list) => ({
+      queryKey: ["list", list.id],
+      queryFn: async () => {
+        const res = await fetch(`/api/lists/${list.id}`);
+        if (!res.ok) throw new Error();
+        return res.json();
+      },
+    })),
+  });
+  const folderLists: ListDetail[] = folderListQueries
+    .map((q) => q.data?.data)
+    .filter(Boolean) as ListDetail[];
+  const folderListsLoading = folderListQueries.some((q) => q.isLoading);
 
   function toggleFolder(folderId: string) {
     setExpandedFolders((prev) => {
@@ -314,7 +332,10 @@ export default function CampaignDetailPage() {
       const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
       toast.success("Task deleted");
-      queryClient.invalidateQueries({ queryKey: ["list", selectedListId] });
+      if (selectedListId) queryClient.invalidateQueries({ queryKey: ["list", selectedListId] });
+      if (selectedFolderId && !selectedListId) {
+        selectedFolder?.lists.forEach((l) => queryClient.invalidateQueries({ queryKey: ["list", l.id] }));
+      }
       queryClient.invalidateQueries({ queryKey: ["campaign", id] });
       queryClient.invalidateQueries({ queryKey: ["folders", id] });
     } catch {
@@ -568,14 +589,28 @@ export default function CampaignDetailPage() {
               folders.map((folder) => (
                 <div key={folder.id}>
                   {/* Folder row */}
-                  <div className="group flex items-center gap-1 px-2 py-1 hover:bg-muted/60 rounded-lg mx-1">
+                  <div className={cn(
+                    "group flex items-center gap-1 px-2 py-1 rounded-lg mx-1",
+                    selectedFolderId === folder.id && !selectedListId
+                      ? "bg-[#e8170b]/10 text-[#e8170b]"
+                      : "hover:bg-muted/60"
+                  )}>
                     <button
                       onClick={() => toggleFolder(folder.id)}
-                      className="flex-1 flex items-center gap-1.5 min-w-0 text-left"
+                      className="flex-shrink-0 p-0.5"
                     >
                       {expandedFolders.has(folder.id)
-                        ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                        : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
+                        ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                        : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedFolderId(folder.id);
+                        setSelectedListId(null);
+                        if (!expandedFolders.has(folder.id)) toggleFolder(folder.id);
+                      }}
+                      className="flex-1 flex items-center gap-1.5 min-w-0 text-left"
+                    >
                       <FolderIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: folder.color }} />
                       {renamingFolderId === folder.id ? (
                         <input
@@ -627,7 +662,7 @@ export default function CampaignDetailPage() {
                       {folder.lists.map((list) => (
                         <div
                           key={list.id}
-                          onClick={() => setSelectedListId(list.id)}
+                          onClick={() => { setSelectedListId(list.id); setSelectedFolderId(folder.id); }}
                           className={cn(
                             "group flex items-center gap-1 px-2 py-1 rounded-lg mx-1 cursor-pointer",
                             selectedListId === list.id
@@ -743,7 +778,183 @@ export default function CampaignDetailPage() {
 
         {/* Main content */}
         <div className="flex-1 min-w-0 flex flex-col">
-          {!selectedListId ? (
+          {/* ── Folder view: show all lists grouped ── */}
+          {!selectedListId && selectedFolderId ? (
+            folderListsLoading ? (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-[#e8170b] border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="flex-1 overflow-auto">
+                {/* Folder header */}
+                <div className="flex items-center justify-between px-5 py-3.5 border-b border-border flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <FolderIcon className="w-4 h-4 text-muted-foreground" />
+                    <h2 className="font-semibold">{selectedFolder?.name}</h2>
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                      {selectedFolder?.lists.length ?? 0} lists
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 p-1 bg-muted rounded-xl">
+                    <button
+                      onClick={() => setCampaignView("list")}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                        campaignView === "list" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <List className="w-3.5 h-3.5" /> List
+                    </button>
+                    <button
+                      onClick={() => setCampaignView("kanban")}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                        campaignView === "kanban" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" /> Kanban
+                    </button>
+                  </div>
+                </div>
+
+                {folderLists.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-muted-foreground text-sm">
+                    <Hash className="w-10 h-10 mb-3 opacity-20" />
+                    <p>No lists in this folder yet.</p>
+                    {canManage && (
+                      <button
+                        onClick={() => { setCreatingListInFolder(selectedFolderId); if (!expandedFolders.has(selectedFolderId)) toggleFolder(selectedFolderId); }}
+                        className="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#e8170b] hover:bg-[#c91409] text-white text-sm font-medium transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add List
+                      </button>
+                    )}
+                  </div>
+                ) : campaignView === "list" ? (
+                  <div className="divide-y divide-border">
+                    {folderLists.map((list) => (
+                      <div key={list.id}>
+                        {/* List section header */}
+                        <div className="flex items-center justify-between px-5 py-2.5 bg-muted/30">
+                          <div className="flex items-center gap-2">
+                            <Hash className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className="text-sm font-semibold text-foreground">{list.name}</span>
+                            <span className="text-xs text-muted-foreground bg-background border border-border px-1.5 py-0.5 rounded-full">{list.tasks.length}</span>
+                          </div>
+                          {canManage && (
+                            <button
+                              onClick={() => { setSelectedListId(list.id); setShowTaskForm(true); }}
+                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-[#e8170b] hover:bg-[#e8170b]/5 transition-colors"
+                            >
+                              <Plus className="w-3 h-3" /> Add Task
+                            </button>
+                          )}
+                        </div>
+                        {list.tasks.length === 0 ? (
+                          <div className="px-5 py-4 text-xs text-muted-foreground italic">No tasks in this list.</div>
+                        ) : (
+                          <table className="w-full">
+                            <thead>
+                              <tr className="text-left text-xs text-muted-foreground border-b border-border">
+                                <th className="px-5 py-2.5 font-medium">Task</th>
+                                <th className="px-4 py-2.5 font-medium">Status</th>
+                                <th className="px-4 py-2.5 font-medium">Priority</th>
+                                <th className="px-4 py-2.5 font-medium">Assignees</th>
+                                <th className="px-4 py-2.5 font-medium">Due</th>
+                                {canManage && <th className="px-4 py-2.5 w-10" />}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                              {list.tasks.map((task) => (
+                                <tr key={task.id} onClick={() => setSelectedTaskId(task.id)} className="hover:bg-muted/20 transition-colors group cursor-pointer">
+                                  <td className="px-5 py-2.5"><p className="font-medium text-sm">{task.title}</p></td>
+                                  <td className="px-4 py-2.5"><StatusBadge status={task.status} /></td>
+                                  <td className="px-4 py-2.5"><PriorityBadge priority={task.priority} /></td>
+                                  <td className="px-4 py-2.5"><AvatarGroup users={task.assignees.map((a) => a.user)} max={3} /></td>
+                                  <td className="px-4 py-2.5 text-sm text-muted-foreground whitespace-nowrap">{formatDate(task.dueDate)}</td>
+                                  {canManage && (
+                                    <td className="px-4 py-2.5">
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                                        disabled={deletingTaskId === task.id}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </td>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  /* Kanban in folder view — all tasks from all lists combined */
+                  <div className="p-4 overflow-auto flex-1">
+                    <div className="flex gap-3 min-w-max">
+                      {KANBAN_COLUMNS.map((col) => {
+                        const allTasks = folderLists.flatMap((l) => l.tasks.map((t) => ({ ...t, listName: l.name })));
+                        const colTasks = allTasks.filter((t) => t.status === col.key);
+                        return (
+                          <div key={col.key} className="w-64 flex-shrink-0">
+                            <div className={cn("rounded-xl p-3 mb-2 flex items-center justify-between", col.color)}>
+                              <span className="text-xs font-semibold">{col.label}</span>
+                              <span className="text-xs font-bold opacity-60">{colTasks.length}</span>
+                            </div>
+                            <div className="space-y-2">
+                              {colTasks.map((task) => (
+                                <div
+                                  key={task.id}
+                                  onClick={() => setSelectedTaskId(task.id)}
+                                  className="bg-card border border-border rounded-xl p-3 hover:shadow-sm transition-shadow group cursor-pointer"
+                                >
+                                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium leading-snug">{task.title}</p>
+                                      <p className="text-[10px] text-muted-foreground mt-0.5">{task.listName}</p>
+                                    </div>
+                                    {canManage && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                                        disabled={deletingTaskId === task.id}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground flex-shrink-0"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <PriorityBadge priority={task.priority} />
+                                    {task.assignees.length > 0 && (
+                                      <AvatarGroup users={task.assignees.map((a) => a.user)} max={2} />
+                                    )}
+                                  </div>
+                                  {task.dueDate && (
+                                    <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
+                                      <Calendar className="w-3 h-3" />
+                                      {formatDate(task.dueDate)}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                              {colTasks.length === 0 && (
+                                <div className="h-16 rounded-xl border-2 border-dashed border-border flex items-center justify-center">
+                                  <span className="text-xs text-muted-foreground">Empty</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          ) : !selectedListId ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
               <Hash className="w-12 h-12 mb-3 opacity-20" />
               <p className="text-sm font-medium">Select a list to view its tasks</p>
