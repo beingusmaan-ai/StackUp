@@ -2,17 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import Groq from "groq-sdk";
+import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!process.env.GROQ_API_KEY) {
-    return NextResponse.json({ error: "AI not configured — add GROQ_API_KEY to .env" }, { status: 503 });
-  }
-
-  const { question, history, teamId } = await req.json();
+  const { question, history, teamId, model = "groq/llama-3.3-70b-versatile" } = await req.json();
   if (!question?.trim()) return NextResponse.json({ error: "Question required" }, { status: 400 });
+
+  // Validate that the requested provider's key is configured
+  const providerKey = model.startsWith("openai/") ? process.env.OPENAI_API_KEY
+    : model.startsWith("anthropic/") ? process.env.ANTHROPIC_API_KEY
+    : model.startsWith("google/") ? process.env.GOOGLE_GEMINI_API_KEY
+    : process.env.GROQ_API_KEY;
+  if (!providerKey) {
+    return NextResponse.json({ error: `API key not configured for this model. Add the required key to your environment.` }, { status: 503 });
+  }
 
   try {
     // Build member ID filter for team scoping
@@ -164,28 +171,73 @@ TEAM MEMBERS (${userStats.length} total):
 ${teamSection}
 `.trim();
 
-    const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-    const messages = [
-      {
-        role: "system" as const,
-        content: `You are StackUp AI, an intelligent assistant integrated with the StackUp project management portal. You have access to real-time data from the portal. Answer questions using the actual data provided below. Be specific, concise, and data-driven — never give generic answers.
+    const systemContent = `You are StackUp Mind, an intelligent assistant integrated with the StackUp project management portal. You have access to real-time data from the portal. Answer questions using the actual data provided below. Be specific, concise, and data-driven — never give generic answers.
 
 PORTAL DATA:
-${context}`,
-      },
+${context}`;
+
+    const chatMessages = [
       ...(history ?? []),
       { role: "user" as const, content: question },
     ];
 
-    const completion = await client.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages,
-      max_tokens: 1024,
-    });
+    let answer = "";
 
-    const answer = completion.choices[0]?.message?.content ?? "I couldn't generate a response.";
-    return NextResponse.json({ answer });
+    if (model.startsWith("openai/")) {
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const modelId = model.replace("openai/", "");
+      const completion = await openai.chat.completions.create({
+        model: modelId,
+        max_tokens: 1024,
+        messages: [{ role: "system", content: systemContent }, ...chatMessages],
+      });
+      answer = completion.choices[0]?.message?.content ?? "";
+
+    } else if (model.startsWith("anthropic/")) {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const modelId = model.replace("anthropic/", "");
+      const response = await anthropic.messages.create({
+        model: modelId,
+        max_tokens: 1024,
+        system: systemContent,
+        messages: chatMessages.map((m) => ({ role: m.role, content: m.content })),
+      });
+      answer = response.content[0]?.type === "text" ? response.content[0].text : "";
+
+    } else if (model.startsWith("google/")) {
+      const geminiModel = model.replace("google/", "");
+      const geminiMessages = chatMessages.map((m) => ({
+        role: m.role === "user" ? "user" : "model",
+        parts: [{ text: m.content }],
+      }));
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${process.env.GOOGLE_GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemContent }] },
+            contents: geminiMessages,
+            generationConfig: { maxOutputTokens: 1024 },
+          }),
+        }
+      );
+      const geminiData = await res.json();
+      answer = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+
+    } else {
+      // Default: Groq
+      const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      const modelId = model.replace("groq/", "");
+      const completion = await groqClient.chat.completions.create({
+        model: modelId,
+        max_tokens: 1024,
+        messages: [{ role: "system", content: systemContent }, ...chatMessages],
+      });
+      answer = completion.choices[0]?.message?.content ?? "";
+    }
+
+    return NextResponse.json({ answer: answer || "I couldn't generate a response." });
   } catch (err) {
     console.error("[POST /api/ai/ask]", err);
     return NextResponse.json({ error: "AI request failed. Please try again." }, { status: 500 });

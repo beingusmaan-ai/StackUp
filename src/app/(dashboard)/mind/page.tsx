@@ -3,11 +3,13 @@
 import { useState, useRef, useEffect } from "react";
 import {
   Sparkles, Send, User, Loader2, Plus,
-  Search, Bell, FileText, RotateCcw, Clipboard,
+  Search, Bell, FileText, RotateCcw, Clipboard, ChevronDown, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/ui-store";
 import { toast } from "sonner";
+import type { AIModel } from "@/lib/ai-models";
+import { PROVIDER_ICONS } from "@/lib/ai-models";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -77,13 +79,40 @@ const STARTERS = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MindPage() {
-  const [messages, setMessages]   = useState<Message[]>([]);
-  const [input, setInput]         = useState("");
-  const [loading, setLoading]     = useState(false);
-  const [activeTab, setActiveTab] = useState<"ask" | "templates">("ask");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const bottomRef   = useRef<HTMLDivElement>(null);
+  const [messages, setMessages]     = useState<Message[]>([]);
+  const [input, setInput]           = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [activeTab, setActiveTab]   = useState<"ask" | "templates">("ask");
+  const [models, setModels]         = useState<AIModel[]>([]);
+  const [selectedModel, setSelectedModel] = useState("groq/llama-3.3-70b-versatile");
+  const [showModelPicker, setShowModelPicker] = useState(false);
+  const textareaRef   = useRef<HTMLTextAreaElement>(null);
+  const bottomRef     = useRef<HTMLDivElement>(null);
+  const pickerRef     = useRef<HTMLDivElement>(null);
   const { activeTeamId } = useUIStore();
+
+  useEffect(() => {
+    fetch("/api/ai/models")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.models?.length) {
+          setModels(d.models);
+          setSelectedModel(d.models[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Close model picker on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowModelPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const hasMessages = messages.length > 0 || loading;
 
@@ -104,7 +133,7 @@ export default function MindPage() {
       const res = await fetch("/api/ai/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, history, teamId: activeTeamId }),
+        body: JSON.stringify({ question, history, teamId: activeTeamId, model: selectedModel }),
       });
       const data = await res.json();
       setMessages((prev) => [
@@ -126,6 +155,62 @@ export default function MindPage() {
       e.preventDefault();
       sendMessage(input);
     }
+  }
+
+  const selectedModelInfo = models.find((m) => m.id === selectedModel);
+
+  // Groups models by provider
+  const groupedModels = models.reduce<Record<string, AIModel[]>>((acc, m) => {
+    if (!acc[m.provider]) acc[m.provider] = [];
+    acc[m.provider].push(m);
+    return acc;
+  }, {});
+
+  function ModelPickerButton({ size = "md" }: { size?: "sm" | "md" }) {
+    return (
+      <div ref={pickerRef} className="relative">
+        <button
+          onClick={() => setShowModelPicker((v) => !v)}
+          className={cn(
+            "flex items-center gap-1.5 rounded-lg hover:bg-muted transition-colors font-medium text-muted-foreground",
+            size === "md" ? "px-2.5 py-1 text-[12px]" : "px-2 py-1 text-[11px]"
+          )}
+        >
+          <span>{selectedModelInfo ? PROVIDER_ICONS[selectedModelInfo.provider] : "⚡"}</span>
+          <span>{selectedModelInfo?.name ?? "StackUp Mind"}</span>
+          <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+        </button>
+
+        {showModelPicker && (
+          <div className="absolute bottom-full left-0 mb-2 w-72 bg-background border border-border rounded-2xl shadow-xl z-50 overflow-hidden py-2">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-3 py-1.5">Best models</p>
+            {Object.entries(groupedModels).map(([provider, providerModels]) => (
+              <div key={provider}>
+                <div className="px-3 py-1 mt-1">
+                  <p className="text-[10px] text-muted-foreground/60 font-medium">{provider}</p>
+                </div>
+                {providerModels.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => { setSelectedModel(m.id); setShowModelPicker(false); }}
+                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-sm">{PROVIDER_ICONS[m.provider]}</span>
+                      <div>
+                        <p className="text-[12px] font-medium text-foreground">{m.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{m.description}</p>
+                      </div>
+                    </div>
+                    {selectedModel === m.id && <Check className="w-3.5 h-3.5 text-[#e8170b] flex-shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   }
 
   // Auto-resize textarea
@@ -205,10 +290,7 @@ export default function MindPage() {
                         <button className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                           <Plus className="w-3.5 h-3.5" />
                         </button>
-                        <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-muted transition-colors text-[12px] text-muted-foreground font-medium">
-                          <Sparkles className="w-3 h-3 text-[#e8170b]" />
-                          StackUp Mind
-                        </button>
+                        <ModelPickerButton size="md" />
                       </div>
                       <button
                         onClick={() => sendMessage(input)}
@@ -371,10 +453,7 @@ export default function MindPage() {
                   />
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
                     <div className="flex items-center gap-1.5">
-                      <button className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-muted transition-colors text-[11px] text-muted-foreground font-medium">
-                        <Sparkles className="w-3 h-3 text-[#e8170b]" />
-                        StackUp Mind
-                      </button>
+                      <ModelPickerButton size="sm" />
                     </div>
                     <button
                       onClick={() => sendMessage(input)}
