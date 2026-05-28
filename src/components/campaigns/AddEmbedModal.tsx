@@ -11,8 +11,8 @@ interface AddEmbedModalProps {
 }
 
 const PRESETS = [
-  { name: "Google Sheets",   icon: "📊", hint: "https://docs.google.com/spreadsheets/...",    transform: (u: string) => u.includes("/edit") ? u.replace("/edit", "/pubhtml") : u },
-  { name: "Google Docs",     icon: "📝", hint: "https://docs.google.com/document/...",         transform: (u: string) => u.includes("/edit") ? u.replace("/edit", "/preview") : u },
+  { name: "Google Sheets",   icon: "📊", hint: "https://docs.google.com/spreadsheets/d/...",  transform: (u: string) => { const m = u.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/); return m ? `https://docs.google.com/spreadsheets/d/${m[1]}/preview` : u; } },
+  { name: "Google Docs",     icon: "📝", hint: "https://docs.google.com/document/d/...",       transform: (u: string) => { const m = u.match(/document\/d\/([a-zA-Z0-9-_]+)/); return m ? `https://docs.google.com/document/d/${m[1]}/preview` : u; } },
   { name: "Google Calendar", icon: "📅", hint: "https://calendar.google.com/...",              transform: (u: string) => u },
   { name: "Figma",           icon: "🎨", hint: "https://www.figma.com/file/...",               transform: (u: string) => `https://www.figma.com/embed?embed_host=share&url=${encodeURIComponent(u)}` },
   { name: "YouTube",         icon: "▶️", hint: "https://www.youtube.com/watch?v=...",          transform: (u: string) => { const m = u.match(/(?:v=|youtu\.be\/)([^&]+)/); return m ? `https://www.youtube.com/embed/${m[1]}` : u; } },
@@ -127,7 +127,13 @@ export function AddEmbedModal({ campaignId, onClose, onSuccess }: AddEmbedModalP
                   {selected.name === "Google Sheets" && (
                     <p className="text-[11px] text-muted-foreground mt-1.5 flex items-start gap-1">
                       <ExternalLink className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                      For Google Sheets, go to File → Share → Publish to web, then paste the link here.
+                      Open the sheet → click Share → set access to <strong>&quot;Anyone with the link can view&quot;</strong> → paste the URL here.
+                    </p>
+                  )}
+                  {selected.name === "Google Docs" && (
+                    <p className="text-[11px] text-muted-foreground mt-1.5 flex items-start gap-1">
+                      <ExternalLink className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                      Open the doc → click Share → set access to <strong>&quot;Anyone with the link can view&quot;</strong> → paste the URL here.
                     </p>
                   )}
                   {selected.name === "Figma" && (
