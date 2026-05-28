@@ -1059,7 +1059,13 @@ export default function CampaignDetailPage() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
-                    onClick={() => setShowFilters((v) => !v)}
+                    onClick={() => {
+                      const next = !showFilters;
+                      setShowFilters(next);
+                      if (next && activeFilters.length === 0) {
+                        setActiveFilters([{ id: Math.random().toString(36).slice(2), connector: "AND", field: null, operator: "is", values: [] }]);
+                      }
+                    }}
                     className={cn(
                       "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all",
                       showFilters || activeFilters.length > 0
