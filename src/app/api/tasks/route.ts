@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search");
   const tab = searchParams.get("tab"); // "incoming" | "outgoing"
   const teamId = searchParams.get("teamId"); // active team context
-  const picker = searchParams.get("picker") === "1";
+  const picker   = searchParams.get("picker")   === "1";
+  const assigned = searchParams.get("assigned") === "1";
 
   // Resolve caller's real DB user ID
   const isGlobalAdmin = session.user.role === "ADMIN";
@@ -54,7 +55,8 @@ export async function GET(req: NextRequest) {
   if (status) where.status = status;
   if (priority) where.priority = priority;
   if (campaignId) where.campaignId = campaignId;
-  if (assigneeId) where.assignees = { some: { userId: assigneeId } };
+  if (assigned) where.assignees = { some: { userId: callerDbId } };
+  else if (assigneeId) where.assignees = { some: { userId: assigneeId } };
   if (search) where.title = { contains: search };
 
   // Scope to a specific team's tasks — non-admins must be a member of that team

@@ -926,7 +926,7 @@ export default function PlannerPage() {
 
   const { data: taskRes } = useQuery({
     queryKey: ["planner-tasks"],
-    queryFn: () => fetch("/api/tasks?picker=1").then((r) => r.json()),
+    queryFn: () => fetch("/api/tasks?assigned=1").then((r) => r.json()),
   });
 
   const { data: connRes } = useQuery({

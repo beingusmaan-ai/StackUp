@@ -16,10 +16,12 @@ import {
   List, ListOrdered, CheckSquare, Quote, Code, Minus,
   AlignLeft, AlignCenter, AlignRight, Highlighter, Link2,
   Save, Clock, Share2, Megaphone, CheckSquare as TaskIcon, X as XIcon, ChevronDown as ChevronDownIcon,
+  Sparkles,
 } from "lucide-react";
 import { cn, formatRelative } from "@/lib/utils";
 import { toast } from "sonner";
 import { ShareModal } from "./ShareModal";
+import { AiPanel } from "./AiPanel";
 
 type Doc = {
   id: string;
@@ -49,6 +51,7 @@ export function DocEditor({ doc }: DocEditorProps) {
   const [lastSaved, setLastSaved] = useState(doc.updatedAt);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showAI, setShowAI] = useState(false);
   const [isPublic, setIsPublic] = useState(doc.isPublic ?? false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const linkPickerRef = useRef<HTMLDivElement>(null);
@@ -230,8 +233,8 @@ export function DocEditor({ doc }: DocEditorProps) {
           <Link2 className="w-3.5 h-3.5" />
         </ToolBtn>
 
-        {/* Save status + Share */}
-        <div className="ml-auto flex items-center gap-3">
+        {/* Save status + AI + Share */}
+        <div className="ml-auto flex items-center gap-2">
           <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             {saving ? (
               <><Save className="w-3 h-3 animate-pulse" /> Saving…</>
@@ -239,6 +242,18 @@ export function DocEditor({ doc }: DocEditorProps) {
               <><Clock className="w-3 h-3" /> Saved {formatRelative(lastSaved)}</>
             )}
           </span>
+          <button
+            onClick={() => setShowAI((v) => !v)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
+              showAI
+                ? "bg-gradient-to-r from-[#e8170b] to-[#ff6b35] text-white border-transparent"
+                : "border-[#e8170b]/30 text-[#e8170b] hover:bg-[#e8170b]/5"
+            )}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            StackUp Mind
+          </button>
           <button
             onClick={() => setShowShare(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#e8170b] hover:bg-[#c91409] text-white text-xs font-medium transition-colors"
@@ -249,7 +264,8 @@ export function DocEditor({ doc }: DocEditorProps) {
         </div>
       </div>
 
-      {/* Editor area */}
+      {/* Editor area + AI panel */}
+      <div className="flex flex-1 overflow-hidden">
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-8 py-10">
           {/* Icon picker */}
@@ -410,6 +426,12 @@ export function DocEditor({ doc }: DocEditorProps) {
           {/* TipTap content */}
           <EditorContent editor={editor} />
         </div>
+      </div>
+
+      {/* AI panel */}
+      {showAI && (
+        <AiPanel editor={editor} docTitle={title} onClose={() => setShowAI(false)} />
+      )}
       </div>
 
       {showShare && (
