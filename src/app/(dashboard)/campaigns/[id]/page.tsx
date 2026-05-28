@@ -7,7 +7,7 @@ import {
   ArrowLeft, Target, Calendar, TrendingUp, Plus,
   BookTemplate, Edit2, List, LayoutGrid, GanttChart, Trash2, FileText,
   ChevronRight, ChevronDown, Folder as FolderIcon, Hash, Check, X as XIcon, Pencil,
-  Sparkles, Loader2, Users, Table2, ExternalLink,
+  Sparkles, Loader2, Users, Table2, ExternalLink, Filter,
 } from "lucide-react";
 import Link from "next/link";
 import { PriorityBadge, CampaignStatusBadge } from "@/components/shared/StatusBadge";
@@ -24,6 +24,7 @@ import { CalendarView } from "@/components/campaigns/CalendarView";
 import { TeamView } from "@/components/campaigns/TeamView";
 import { TableView } from "@/components/campaigns/TableView";
 import { AddEmbedModal } from "@/components/campaigns/AddEmbedModal";
+import { FilterBar, applyFilters, type ActiveFilter } from "@/components/campaigns/FilterBar";
 import { TaskListGrouped } from "@/components/tasks/TaskListGrouped";
 import { useUIStore } from "@/store/ui-store";
 import { useSession } from "next-auth/react";
@@ -138,6 +139,8 @@ export default function CampaignDetailPage() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEmbedId, setSelectedEmbedId] = useState<string | null>(null);
   const [showAddEmbed, setShowAddEmbed] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
 
   const didAutoSelect = useRef(false);
 
@@ -1054,6 +1057,21 @@ export default function CampaignDetailPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => setShowFilters((v) => !v)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all",
+                      showFilters || activeFilters.length > 0
+                        ? "bg-[#e8170b]/10 border-[#e8170b]/30 text-[#e8170b]"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-border/80"
+                    )}
+                  >
+                    <Filter className="w-3.5 h-3.5" />
+                    Filters
+                    {activeFilters.length > 0 && (
+                      <span className="bg-[#e8170b] text-white rounded-full text-[10px] px-1.5 font-bold">{activeFilters.length}</span>
+                    )}
+                  </button>
                   <div className="flex items-center gap-0.5 p-1 bg-muted rounded-xl flex-wrap">
                     {([
                       { key: "list",     icon: List,        label: "List" },
@@ -1122,73 +1140,90 @@ export default function CampaignDetailPage() {
                 </div>
               </div>
 
+              {/* Filter bar */}
+              {showFilters && !selectedEmbedId && (
+                <FilterBar
+                  filters={activeFilters}
+                  onChange={setActiveFilters}
+                  assignees={Array.from(
+                    new Map(
+                      currentList.tasks.flatMap((t) => t.assignees.map((a) => [a.user.id, a.user]))
+                    ).values()
+                  )}
+                />
+              )}
+
               {/* Tasks */}
-              {selectedEmbedId ? (
-                (() => {
-                  const embed = embeds.find((e) => e.id === selectedEmbedId);
-                  return embed ? (
-                    <div className="flex-1 flex flex-col overflow-hidden">
-                      <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/20 flex-shrink-0">
-                        <span className="text-base">{embed.icon ?? "🌐"}</span>
-                        <span className="text-sm font-medium">{embed.name}</span>
-                        <a href={embed.url} target="_blank" rel="noopener noreferrer" className="ml-auto text-xs text-muted-foreground hover:text-[#e8170b] flex items-center gap-1 transition-colors">
-                          <ExternalLink className="w-3 h-3" /> Open in new tab
-                        </a>
+              {(() => {
+                const filteredTasks = applyFilters(currentList.tasks, activeFilters);
+                return selectedEmbedId ? (
+                  (() => {
+                    const embed = embeds.find((e) => e.id === selectedEmbedId);
+                    return embed ? (
+                      <div className="flex-1 flex flex-col overflow-hidden">
+                        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/20 flex-shrink-0">
+                          <span className="text-base">{embed.icon ?? "🌐"}</span>
+                          <span className="text-sm font-medium">{embed.name}</span>
+                          <a href={embed.url} target="_blank" rel="noopener noreferrer" className="ml-auto text-xs text-muted-foreground hover:text-[#e8170b] flex items-center gap-1 transition-colors">
+                            <ExternalLink className="w-3 h-3" /> Open in new tab
+                          </a>
+                        </div>
+                        <div className="flex-1 relative min-h-0">
+                          <iframe
+                            src={embed.url}
+                            className="absolute inset-0 w-full h-full border-0"
+                            allow="fullscreen"
+                            title={embed.name}
+                          />
+                        </div>
                       </div>
-                      <div className="flex-1 relative min-h-0">
-                        <iframe
-                          src={embed.url}
-                          className="absolute inset-0 w-full h-full border-0"
-                          allow="fullscreen"
-                          title={embed.name}
-                        />
-                      </div>
-                    </div>
-                  ) : null;
-                })()
-              ) : currentList.tasks.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-muted-foreground text-sm">
-                  <Target className="w-10 h-10 mb-3 opacity-20" />
-                  <p>No tasks yet in this list.</p>
-                  <button
-                    onClick={() => setShowTaskForm(true)}
-                    className="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#e8170b] hover:bg-[#c91409] text-white text-sm font-medium transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Task
-                  </button>
-                </div>
-              ) : campaignView === "gantt" ? (
-                <GanttView
-                  tasks={currentList.tasks}
-                  campaignStart={campaign.startDate}
-                  campaignEnd={campaign.endDate}
-                />
-              ) : campaignView === "calendar" ? (
-                <CalendarView tasks={currentList.tasks} onTaskClick={setSelectedTaskId} />
-              ) : campaignView === "team" ? (
-                <TeamView tasks={currentList.tasks} onTaskClick={setSelectedTaskId} />
-              ) : campaignView === "table" ? (
-                <TableView
-                  tasks={currentList.tasks}
-                  canManage={canManage}
-                  onTaskClick={setSelectedTaskId}
-                  onDeleteTask={deleteTask}
-                  deletingTaskId={deletingTaskId}
-                />
-              ) : campaignView === "list" ? (
-                <TaskListGrouped
-                  tasks={currentList.tasks}
-                  canManage={canManage}
-                  onTaskClick={setSelectedTaskId}
-                  onDeleteTask={deleteTask}
-                  onAddTask={() => setShowTaskForm(true)}
-                  deletingTaskId={deletingTaskId}
-                />
-              ) : (
-                <div className="p-4 overflow-auto flex-1">
-                  <div className="flex gap-3 min-w-max">
-                    {KANBAN_COLUMNS.map((col) => {
-                      const colTasks = currentList.tasks.filter((t) => t.status === col.key);
+                    ) : null;
+                  })()
+                ) : filteredTasks.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-muted-foreground text-sm">
+                    <Target className="w-10 h-10 mb-3 opacity-20" />
+                    <p>{activeFilters.length > 0 ? "No tasks match the current filters." : "No tasks yet in this list."}</p>
+                    {activeFilters.length === 0 && (
+                      <button
+                        onClick={() => setShowTaskForm(true)}
+                        className="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#e8170b] hover:bg-[#c91409] text-white text-sm font-medium transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Task
+                      </button>
+                    )}
+                  </div>
+                ) : campaignView === "gantt" ? (
+                  <GanttView
+                    tasks={filteredTasks}
+                    campaignStart={campaign.startDate}
+                    campaignEnd={campaign.endDate}
+                  />
+                ) : campaignView === "calendar" ? (
+                  <CalendarView tasks={filteredTasks} onTaskClick={setSelectedTaskId} />
+                ) : campaignView === "team" ? (
+                  <TeamView tasks={filteredTasks} onTaskClick={setSelectedTaskId} />
+                ) : campaignView === "table" ? (
+                  <TableView
+                    tasks={filteredTasks}
+                    canManage={canManage}
+                    onTaskClick={setSelectedTaskId}
+                    onDeleteTask={deleteTask}
+                    deletingTaskId={deletingTaskId}
+                  />
+                ) : campaignView === "list" ? (
+                  <TaskListGrouped
+                    tasks={filteredTasks}
+                    canManage={canManage}
+                    onTaskClick={setSelectedTaskId}
+                    onDeleteTask={deleteTask}
+                    onAddTask={() => setShowTaskForm(true)}
+                    deletingTaskId={deletingTaskId}
+                  />
+                ) : (
+                  <div className="p-4 overflow-auto flex-1">
+                    <div className="flex gap-3 min-w-max">
+                      {KANBAN_COLUMNS.map((col) => {
+                        const colTasks = filteredTasks.filter((t) => t.status === col.key);
                       return (
                         <div key={col.key} className="w-64 flex-shrink-0">
                           <div className={cn("rounded-xl p-3 mb-2 flex items-center justify-between", col.color)}>
@@ -1236,10 +1271,11 @@ export default function CampaignDetailPage() {
                           </div>
                         </div>
                       );
-                    })}
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </>
           ) : null}
         </div>
