@@ -42,16 +42,18 @@ export async function GET(req: NextRequest) {
 
   let allowedDeptIds = await getUserAllowedDeptIds(session);
 
+  // Resolve caller DB id for ownership fallback
+  let callerDbId = session.user.id;
+  if (session.user.email) {
+    const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
+    if (me) callerDbId = me.id;
+  }
+
   // In sidebar mode, restrict admin users to their own department memberships.
   // Admins with no memberships fall back to seeing all (null = no restriction).
   if (sidebar && allowedDeptIds === null) {
-    let dbUserId = session.user.id;
-    if (session.user.email) {
-      const me = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true } });
-      if (me) dbUserId = me.id;
-    }
     const memberships = await db.departmentMember.findMany({
-      where: { userId: dbUserId },
+      where: { userId: callerDbId },
       select: { departmentId: true },
     });
     if (memberships.length > 0) {
@@ -59,21 +61,40 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const where: Record<string, unknown> = {};
-  if (workspaceId) where.workspaceId = workspaceId;
+  // Build conditions as AND array so we can mix OR sub-clauses cleanly
+  const conditions: Record<string, unknown>[] = [];
+
+  // Workspace filter: include campaigns explicitly in this workspace OR with no workspace
+  // (campaigns created before workspaces were introduced have workspaceId = null)
+  if (workspaceId) {
+    conditions.push({ OR: [{ workspaceId }, { workspaceId: null }] });
+  }
 
   if (!picker) {
     if (allowedDeptIds !== null) {
       // Non-admin (or admin in sidebar mode): restrict to their departments
       const effectiveDeptIds =
         departmentId && allowedDeptIds.includes(departmentId) ? [departmentId] : allowedDeptIds;
-      where.departmentId = { in: effectiveDeptIds };
+      if (effectiveDeptIds.length > 0) {
+        // Show campaigns in their departments OR campaigns they own with no department
+        conditions.push({
+          OR: [
+            { departmentId: { in: effectiveDeptIds } },
+            { departmentId: null, ownerId: callerDbId },
+          ],
+        });
+      } else {
+        // User has no dept memberships — show only campaigns they own
+        conditions.push({ ownerId: callerDbId });
+      }
     } else if (departmentId) {
-      where.departmentId = departmentId;
+      conditions.push({ departmentId });
     }
   } else if (departmentId) {
-    where.departmentId = departmentId;
+    conditions.push({ departmentId });
   }
+
+  const where = conditions.length > 0 ? { AND: conditions } : {};
 
   const campaigns = await db.campaign.findMany({
     where: Object.keys(where).length > 0 ? where : undefined,
