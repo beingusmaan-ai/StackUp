@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Search, Trash2, Plus, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type FilterField = "status" | "priority" | "assignee" | "dueDate";
+export type FilterField = "status" | "priority" | "assignee" | "dueDate" | "assignedBy";
 export type FilterOperator = "is" | "is_not" | "is_empty" | "is_not_empty" | "before" | "after";
 
 export interface ActiveFilter {
@@ -71,6 +71,17 @@ const FIELD_DEFS: FieldDef[] = [
   {
     key: "assignee",
     label: "Assignee",
+    operators: [
+      { key: "is",           label: "Is" },
+      { key: "is_not",       label: "Is not" },
+      { key: "is_empty",     label: "Is empty" },
+      { key: "is_not_empty", label: "Is not empty" },
+    ],
+    valueType: "select",
+  },
+  {
+    key: "assignedBy",
+    label: "Assigned by",
     operators: [
       { key: "is",           label: "Is" },
       { key: "is_not",       label: "Is not" },
@@ -200,7 +211,7 @@ function ValueSelect({
       ? STATUS_OPTIONS
       : field === "priority"
       ? PRIORITY_OPTIONS
-      : assignees.map((a) => ({ value: a.id, label: a.name }));
+      : assignees.map((a) => ({ value: a.id, label: a.name })); // covers assignee + assignedBy
 
   const label =
     values.length === 0
@@ -385,6 +396,7 @@ export function applyFilters<T extends {
   priority: string;
   dueDate?: string | null;
   assignees: { user: { id: string } }[];
+  createdBy?: { id: string } | null;
 }>(tasks: T[], filters: ActiveFilter[]): T[] {
   if (filters.length === 0) return tasks;
   return tasks.filter((task) =>
@@ -407,6 +419,13 @@ export function applyFilters<T extends {
         if (f.operator === "is_not")       return !f.values.some((v) => ids.includes(v));
         if (f.operator === "is_empty")     return ids.length === 0;
         if (f.operator === "is_not_empty") return ids.length > 0;
+      }
+      if (f.field === "assignedBy") {
+        const creatorId = task.createdBy?.id ?? null;
+        if (f.operator === "is")           return !!creatorId && f.values.includes(creatorId);
+        if (f.operator === "is_not")       return !creatorId || !f.values.includes(creatorId);
+        if (f.operator === "is_empty")     return !creatorId;
+        if (f.operator === "is_not_empty") return !!creatorId;
       }
       if (f.field === "dueDate") {
         if (f.operator === "is_empty")     return !task.dueDate;

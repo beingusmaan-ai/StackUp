@@ -44,6 +44,7 @@ interface ListTask {
   startDate?: string | null;
   dueDate?: string | null;
   assignees: { user: TaskUser }[];
+  createdBy: TaskUser;
   _count: { subTasks: number; comments: number };
 }
 
@@ -1147,7 +1148,10 @@ export default function CampaignDetailPage() {
                   onChange={setActiveFilters}
                   assignees={Array.from(
                     new Map(
-                      currentList.tasks.flatMap((t) => t.assignees.map((a) => [a.user.id, a.user]))
+                      currentList.tasks.flatMap((t) => [
+                        ...t.assignees.map((a) => [a.user.id, a.user] as [string, TaskUser]),
+                        ...(t.createdBy ? [[t.createdBy.id, t.createdBy] as [string, TaskUser]] : []),
+                      ])
                     ).values()
                   )}
                 />

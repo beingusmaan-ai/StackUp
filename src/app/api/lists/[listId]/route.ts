@@ -41,6 +41,7 @@ export async function GET(
         orderBy: [{ position: "asc" }, { createdAt: "desc" }],
         include: {
           assignees: { include: { user: { select: { id: true, name: true, image: true } } } },
+          createdBy: { select: { id: true, name: true, image: true } },
           _count: { select: { subTasks: true, comments: true } },
         },
       },
