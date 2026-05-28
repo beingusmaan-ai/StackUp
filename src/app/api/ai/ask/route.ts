@@ -210,7 +210,7 @@ ${context}`;
         role: m.role === "user" ? "user" : "model",
         parts: [{ text: m.content }],
       }));
-      const res = await fetch(
+      const geminiRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${process.env.GOOGLE_GEMINI_API_KEY}`,
         {
           method: "POST",
@@ -218,11 +218,16 @@ ${context}`;
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemContent }] },
             contents: geminiMessages,
-            generationConfig: { maxOutputTokens: 1024 },
+            generationConfig: { maxOutputTokens: 2048 },
           }),
         }
       );
-      const geminiData = await res.json();
+      const geminiData = await geminiRes.json();
+      if (!geminiRes.ok || geminiData.error) {
+        const msg = geminiData.error?.message ?? `Gemini API error (${geminiRes.status})`;
+        console.error("[Gemini error]", geminiData.error);
+        return NextResponse.json({ error: msg }, { status: 502 });
+      }
       answer = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
     } else {
