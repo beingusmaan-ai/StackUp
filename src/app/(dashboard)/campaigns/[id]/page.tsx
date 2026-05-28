@@ -7,6 +7,7 @@ import {
   ArrowLeft, Target, Calendar, TrendingUp, Plus,
   BookTemplate, Edit2, List, LayoutGrid, GanttChart, Trash2, FileText,
   ChevronRight, ChevronDown, Folder as FolderIcon, Hash, Check, X as XIcon, Pencil,
+  Sparkles, Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { StatusBadge, PriorityBadge, CampaignStatusBadge } from "@/components/shared/StatusBadge";
@@ -125,6 +126,8 @@ export default function CampaignDetailPage() {
   const [showEditForm, setShowEditForm] = useState(false);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [showWrapUp, setShowWrapUp] = useState(false);
+  const [generatingUpdate, setGeneratingUpdate] = useState(false);
+  const [campaignUpdate, setCampaignUpdate] = useState<string | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
@@ -401,6 +404,31 @@ export default function CampaignDetailPage() {
                   </button>
                 )}
                 <button
+                  onClick={async () => {
+                    setGeneratingUpdate(true);
+                    setCampaignUpdate(null);
+                    try {
+                      const res = await fetch("/api/ai/campaign-update", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ campaignId: campaign.id }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error ?? "Failed");
+                      setCampaignUpdate(data.update);
+                    } catch (err: unknown) {
+                      toast.error(err instanceof Error ? err.message : "AI update failed");
+                    } finally {
+                      setGeneratingUpdate(false);
+                    }
+                  }}
+                  disabled={generatingUpdate}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#e8170b]/30 text-[#e8170b] text-xs font-medium hover:bg-[#e8170b]/5 transition-colors disabled:opacity-50"
+                >
+                  {generatingUpdate ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  AI Update
+                </button>
+                <button
                   onClick={() => setShowTemplateForm(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border text-xs font-medium hover:bg-muted transition-colors"
                 >
@@ -418,6 +446,24 @@ export default function CampaignDetailPage() {
             )}
           </div>
         </div>
+
+        {/* AI Project Update panel */}
+        {campaignUpdate && (
+          <div className="p-4 bg-[#e8170b]/5 border border-[#e8170b]/20 rounded-xl mb-4 relative">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-semibold text-[#e8170b] uppercase tracking-widest flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3" /> AI Project Update
+              </p>
+              <button
+                onClick={() => setCampaignUpdate(null)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <XIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{campaignUpdate}</p>
+          </div>
+        )}
 
         {campaign.goals && (
           <div className="p-3.5 bg-muted/50 rounded-xl mb-4">

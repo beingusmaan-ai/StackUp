@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { X, Send, CheckCircle, RotateCcw, ChevronDown, Calendar, Paperclip, FileText, Download, XCircle, Cloud, Trash2, Pencil, Reply, ChevronRight } from "lucide-react";
+import { X, Send, CheckCircle, RotateCcw, ChevronDown, Calendar, Paperclip, FileText, Download, XCircle, Cloud, Trash2, Pencil, Reply, ChevronRight, Sparkles, Loader2 } from "lucide-react";
 import { CloudFilePicker } from "@/components/tasks/CloudFilePicker";
 import { HoursEditor } from "@/components/tasks/HoursEditor";
 import { LogTimeModal } from "@/components/tasks/LogTimeModal";
@@ -35,6 +35,8 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
   const [showLogTime, setShowLogTime] = useState(false);
   const [showCloudPicker, setShowCloudPicker] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
+  const [threadSummary, setThreadSummary] = useState("");
 
   const { data } = useQuery({
     queryKey: ["task", taskId],
@@ -436,6 +438,25 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
 
           {/* Tab Content */}
           {activeTab === "comments" && (() => {
+            const summarizeThread = async () => {
+              setSummarizing(true);
+              setThreadSummary("");
+              try {
+                const res = await fetch("/api/ai/summarize-task", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ taskId }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error ?? "Summarization failed");
+                setThreadSummary(data.summary);
+              } catch (err: unknown) {
+                toast.error(err instanceof Error ? err.message : "Failed to summarize");
+              } finally {
+                setSummarizing(false);
+              }
+            };
+
             type CommentType = {
               id: string;
               content: string;
@@ -552,6 +573,26 @@ export function TaskDetail({ taskId, onClose, onUpdate }: TaskDetailProps) {
 
             return (
               <div className="space-y-4">
+                {/* AI Summarize */}
+                {task.comments?.length > 0 && (
+                  <div>
+                    <button
+                      onClick={summarizeThread}
+                      disabled={summarizing}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#e8170b]/30 text-[#e8170b] text-[11px] font-medium hover:bg-[#e8170b]/5 transition-colors disabled:opacity-50"
+                    >
+                      {summarizing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                      {summarizing ? "Summarizing…" : "Summarize Thread"}
+                    </button>
+                    {threadSummary && (
+                      <div className="mt-2 p-3 rounded-xl bg-[#e8170b]/5 border border-[#e8170b]/20 text-xs text-foreground leading-relaxed whitespace-pre-wrap">
+                        <p className="text-[10px] font-semibold text-[#e8170b] uppercase tracking-widest mb-1.5">AI Summary</p>
+                        {threadSummary}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {(!task.comments || task.comments.length === 0) && (
                   <p className="text-sm text-muted-foreground text-center py-8">No comments yet. Be the first!</p>
                 )}

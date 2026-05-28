@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { Plus, List, LayoutGrid, Search, CalendarDays, ChevronDown, Sparkles, X, Megaphone } from "lucide-react";
 import { LogTimeModal } from "@/components/tasks/LogTimeModal";
 import { SmartBreakdownModal } from "@/components/tasks/SmartBreakdownModal";
+import { MeetingNotesModal } from "@/components/tasks/MeetingNotesModal";
 import { RiskFlagsPanel } from "@/components/tasks/RiskFlagsPanel";
 import { DailyFocusPanel } from "@/components/tasks/DailyFocusPanel";
 import { TaskKanbanBoard } from "@/components/tasks/TaskKanbanBoard";
@@ -200,6 +201,7 @@ export default function TasksPage() {
   const [assigneeFilter, setAssigneeFilter] = useState("");
   const [logTimeTask, setLogTimeTask] = useState<{ id: string; title: string; estimatedHours?: number | null } | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [showMeetingNotes, setShowMeetingNotes] = useState(false);
 
   // NL quick-add state
   const [nlText, setNlText] = useState("");
@@ -394,6 +396,13 @@ export default function TasksPage() {
           >
             <Sparkles className="w-3.5 h-3.5" />
             Quick Add
+          </button>
+          <button
+            onClick={() => setShowMeetingNotes(true)}
+            className="flex items-center gap-1.5 px-3 py-2 border border-[#e8170b]/30 text-[#e8170b] hover:bg-[#e8170b]/5 rounded-md text-[13px] font-medium transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            From Notes
           </button>
           <button
             onClick={() => setShowBreakdown(true)}
@@ -707,6 +716,16 @@ export default function TasksPage() {
           taskTitle={logTimeTask.title}
           estimatedHours={logTimeTask.estimatedHours}
           onClose={() => setLogTimeTask(null)}
+        />
+      )}
+
+      {showMeetingNotes && (
+        <MeetingNotesModal
+          onClose={() => setShowMeetingNotes(false)}
+          onTasksCreated={() => {
+            setShowMeetingNotes(false);
+            queryClient.invalidateQueries({ queryKey: ["tasks"] });
+          }}
         />
       )}
 
