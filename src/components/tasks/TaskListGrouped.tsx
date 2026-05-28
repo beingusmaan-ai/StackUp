@@ -211,6 +211,7 @@ function StatusGroup({
   tasks,
   selectedIds,
   onSelect,
+  onSelectGroup,
   onTaskClick,
   onDeleteTask,
   onAddTask,
@@ -221,6 +222,7 @@ function StatusGroup({
   tasks: GroupedTask[];
   selectedIds: Set<string>;
   onSelect: (id: string, on: boolean) => void;
+  onSelectGroup: (ids: string[], on: boolean) => void;
   onTaskClick: (id: string) => void;
   onDeleteTask: (id: string) => void;
   onAddTask: (status: string) => void;
@@ -230,10 +232,42 @@ function StatusGroup({
   const [collapsed, setCollapsed] = useState(false);
   const cfg = STATUS_CONFIG[status] ?? { label: status, badgeClass: "bg-muted text-muted-foreground", Icon: Circle, iconClass: "text-muted-foreground" };
 
+  const groupIds = tasks.map((t) => t.id);
+  const allSelected = groupIds.length > 0 && groupIds.every((id) => selectedIds.has(id));
+  const someSelected = groupIds.some((id) => selectedIds.has(id));
+
+  function handleGroupCheckbox(e: React.MouseEvent) {
+    e.stopPropagation();
+    onSelectGroup(groupIds, !allSelected);
+  }
+
   return (
     <div className="mb-1">
       {/* Status group header */}
       <div className="flex items-center gap-2 px-2 py-2 cursor-pointer select-none group/header" onClick={() => setCollapsed((v) => !v)}>
+        {/* Group checkbox */}
+        <div
+          onClick={handleGroupCheckbox}
+          className={cn(
+            "w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 transition-all cursor-pointer",
+            allSelected
+              ? "bg-[#e8170b] border-[#e8170b]"
+              : someSelected
+              ? "bg-[#e8170b]/30 border-[#e8170b]"
+              : "border-border opacity-0 group/header-hover:opacity-100"
+          )}
+          title={allSelected ? "Deselect all in group" : "Select all in group"}
+        >
+          {allSelected && (
+            <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 12 12">
+              <path d="M10 3L5 8.5 2 5.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+          {someSelected && !allSelected && (
+            <div className="w-1.5 h-0.5 bg-[#e8170b] rounded-full" />
+          )}
+        </div>
+
         <div className="text-muted-foreground/60 flex-shrink-0">
           {collapsed
             ? <ChevronRight className="w-3.5 h-3.5" />
@@ -296,6 +330,14 @@ export function TaskListGrouped({
     });
   }
 
+  function handleSelectGroup(ids: string[], on: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => on ? next.add(id) : next.delete(id));
+      return next;
+    });
+  }
+
   function clearSelection() {
     setSelectedIds(new Set());
   }
@@ -344,6 +386,7 @@ export function TaskListGrouped({
             tasks={grouped[status]}
             selectedIds={selectedIds}
             onSelect={handleSelect}
+            onSelectGroup={handleSelectGroup}
             onTaskClick={onTaskClick}
             onDeleteTask={onDeleteTask}
             onAddTask={onAddTask}
