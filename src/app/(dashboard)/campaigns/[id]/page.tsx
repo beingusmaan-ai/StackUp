@@ -10,7 +10,7 @@ import {
   Sparkles, Loader2,
 } from "lucide-react";
 import Link from "next/link";
-import { StatusBadge, PriorityBadge, CampaignStatusBadge } from "@/components/shared/StatusBadge";
+import { PriorityBadge, CampaignStatusBadge } from "@/components/shared/StatusBadge";
 import { UserAvatar, AvatarGroup } from "@/components/shared/UserAvatar";
 import { formatDate, cn } from "@/lib/utils";
 import { TaskForm } from "@/components/tasks/TaskForm";
@@ -20,6 +20,7 @@ import { CampaignTemplateForm } from "@/components/campaigns/CampaignTemplateFor
 import { CampaignHealthScore } from "@/components/campaigns/CampaignHealthScore";
 import { WrapUpReportModal } from "@/components/campaigns/WrapUpReportModal";
 import { GanttView } from "@/components/campaigns/GanttView";
+import { TaskListGrouped } from "@/components/tasks/TaskListGrouped";
 import { useUIStore } from "@/store/ui-store";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -831,11 +832,11 @@ export default function CampaignDetailPage() {
                     )}
                   </div>
                 ) : campaignView === "list" ? (
-                  <div className="divide-y divide-border">
+                  <div className="divide-y divide-border/60">
                     {folderLists.map((list) => (
                       <div key={list.id}>
                         {/* List section header */}
-                        <div className="flex items-center justify-between px-5 py-2.5 bg-muted/30">
+                        <div className="flex items-center justify-between px-4 py-2 bg-muted/20">
                           <div className="flex items-center gap-2">
                             <Hash className="w-3.5 h-3.5 text-muted-foreground" />
                             <span className="text-sm font-semibold text-foreground">{list.name}</span>
@@ -850,44 +851,14 @@ export default function CampaignDetailPage() {
                             </button>
                           )}
                         </div>
-                        {list.tasks.length === 0 ? (
-                          <div className="px-5 py-4 text-xs text-muted-foreground italic">No tasks in this list.</div>
-                        ) : (
-                          <table className="w-full">
-                            <thead>
-                              <tr className="text-left text-xs text-muted-foreground border-b border-border">
-                                <th className="px-5 py-2.5 font-medium">Task</th>
-                                <th className="px-4 py-2.5 font-medium">Status</th>
-                                <th className="px-4 py-2.5 font-medium">Priority</th>
-                                <th className="px-4 py-2.5 font-medium">Assignees</th>
-                                <th className="px-4 py-2.5 font-medium">Due</th>
-                                {canManage && <th className="px-4 py-2.5 w-10" />}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                              {list.tasks.map((task) => (
-                                <tr key={task.id} onClick={() => setSelectedTaskId(task.id)} className="hover:bg-muted/20 transition-colors group cursor-pointer">
-                                  <td className="px-5 py-2.5"><p className="font-medium text-sm">{task.title}</p></td>
-                                  <td className="px-4 py-2.5"><StatusBadge status={task.status} /></td>
-                                  <td className="px-4 py-2.5"><PriorityBadge priority={task.priority} /></td>
-                                  <td className="px-4 py-2.5"><AvatarGroup users={task.assignees.map((a) => a.user)} max={3} /></td>
-                                  <td className="px-4 py-2.5 text-sm text-muted-foreground whitespace-nowrap">{formatDate(task.dueDate)}</td>
-                                  {canManage && (
-                                    <td className="px-4 py-2.5">
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-                                        disabled={deletingTaskId === task.id}
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </td>
-                                  )}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
+                        <TaskListGrouped
+                          tasks={list.tasks.map((t) => ({ ...t, listName: list.name }))}
+                          canManage={canManage}
+                          onTaskClick={setSelectedTaskId}
+                          onDeleteTask={deleteTask}
+                          onAddTask={() => { setSelectedListId(list.id); setShowTaskForm(true); }}
+                          deletingTaskId={deletingTaskId}
+                        />
                       </div>
                     ))}
                   </div>
@@ -1053,48 +1024,14 @@ export default function CampaignDetailPage() {
                   campaignEnd={campaign.endDate}
                 />
               ) : campaignView === "list" ? (
-                <div className="overflow-auto flex-1">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left text-xs text-muted-foreground border-b border-border bg-muted/30">
-                        <th className="px-5 py-3 font-medium">Task</th>
-                        <th className="px-4 py-3 font-medium">Status</th>
-                        <th className="px-4 py-3 font-medium">Priority</th>
-                        <th className="px-4 py-3 font-medium">Assignees</th>
-                        <th className="px-4 py-3 font-medium">Due</th>
-                        {canManage && <th className="px-4 py-3 font-medium w-10" />}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {currentList.tasks.map((task) => (
-                        <tr key={task.id} onClick={() => setSelectedTaskId(task.id)} className="hover:bg-muted/20 transition-colors group cursor-pointer">
-                          <td className="px-5 py-3">
-                            <p className="font-medium text-sm">{task.title}</p>
-                          </td>
-                          <td className="px-4 py-3"><StatusBadge status={task.status} /></td>
-                          <td className="px-4 py-3"><PriorityBadge priority={task.priority} /></td>
-                          <td className="px-4 py-3">
-                            <AvatarGroup users={task.assignees.map((a) => a.user)} max={3} />
-                          </td>
-                          <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-                            {formatDate(task.dueDate)}
-                          </td>
-                          {canManage && (
-                            <td className="px-4 py-3">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-                                disabled={deletingTaskId === task.id}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <TaskListGrouped
+                  tasks={currentList.tasks}
+                  canManage={canManage}
+                  onTaskClick={setSelectedTaskId}
+                  onDeleteTask={deleteTask}
+                  onAddTask={() => setShowTaskForm(true)}
+                  deletingTaskId={deletingTaskId}
+                />
               ) : (
                 <div className="p-4 overflow-auto flex-1">
                   <div className="flex gap-3 min-w-max">
