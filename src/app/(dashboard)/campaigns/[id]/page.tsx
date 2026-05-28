@@ -7,7 +7,7 @@ import {
   ArrowLeft, Target, Calendar, TrendingUp, Plus,
   BookTemplate, Edit2, List, LayoutGrid, GanttChart, Trash2, FileText,
   ChevronRight, ChevronDown, Folder as FolderIcon, Hash, Check, X as XIcon, Pencil,
-  Sparkles, Loader2, Users, Table2,
+  Sparkles, Loader2, Users, Table2, ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { PriorityBadge, CampaignStatusBadge } from "@/components/shared/StatusBadge";
@@ -23,6 +23,7 @@ import { GanttView } from "@/components/campaigns/GanttView";
 import { CalendarView } from "@/components/campaigns/CalendarView";
 import { TeamView } from "@/components/campaigns/TeamView";
 import { TableView } from "@/components/campaigns/TableView";
+import { AddEmbedModal } from "@/components/campaigns/AddEmbedModal";
 import { TaskListGrouped } from "@/components/tasks/TaskListGrouped";
 import { useUIStore } from "@/store/ui-store";
 import { useSession } from "next-auth/react";
@@ -135,6 +136,8 @@ export default function CampaignDetailPage() {
   const [campaignUpdate, setCampaignUpdate] = useState<string | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedEmbedId, setSelectedEmbedId] = useState<string | null>(null);
+  const [showAddEmbed, setShowAddEmbed] = useState(false);
 
   const didAutoSelect = useRef(false);
 
@@ -171,6 +174,16 @@ export default function CampaignDetailPage() {
     },
   });
   const folders: Folder[] = foldersData?.data ?? [];
+
+  const { data: embedsData, refetch: refetchEmbeds } = useQuery({
+    queryKey: ["embeds", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${id}/embeds`);
+      if (!res.ok) throw new Error();
+      return res.json();
+    },
+  });
+  const embeds: { id: string; name: string; url: string; icon: string | null }[] = embedsData?.data ?? [];
 
   useEffect(() => {
     if (folders.length > 0) {
@@ -799,7 +812,7 @@ export default function CampaignDetailPage() {
                       {selectedFolder?.lists.length ?? 0} lists
                     </span>
                   </div>
-                  <div className="flex items-center gap-0.5 p-1 bg-muted rounded-xl">
+                  <div className="flex items-center gap-0.5 p-1 bg-muted rounded-xl flex-wrap">
                     {([
                       { key: "list",     icon: List,        label: "List" },
                       { key: "kanban",   icon: LayoutGrid,  label: "Kanban" },
@@ -810,10 +823,10 @@ export default function CampaignDetailPage() {
                     ] as const).map(({ key, icon: Icon, label }) => (
                       <button
                         key={key}
-                        onClick={() => setCampaignView(key)}
+                        onClick={() => { setCampaignView(key); setSelectedEmbedId(null); }}
                         className={cn(
                           "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
-                          campaignView === key
+                          campaignView === key && !selectedEmbedId
                             ? "bg-background shadow-sm text-foreground"
                             : "text-muted-foreground hover:text-foreground"
                         )}
@@ -821,10 +834,59 @@ export default function CampaignDetailPage() {
                         <Icon className="w-3.5 h-3.5" /> {label}
                       </button>
                     ))}
+                    {embeds.map((embed) => (
+                      <button
+                        key={embed.id}
+                        onClick={() => { setSelectedEmbedId(embed.id); setCampaignView("list"); }}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group/embed",
+                          selectedEmbedId === embed.id
+                            ? "bg-background shadow-sm text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <span className="text-sm leading-none">{embed.icon ?? "🌐"}</span>
+                        <span>{embed.name}</span>
+                        <span
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await fetch(`/api/campaigns/${id}/embeds/${embed.id}`, { method: "DELETE" });
+                            if (selectedEmbedId === embed.id) setSelectedEmbedId(null);
+                            refetchEmbeds();
+                          }}
+                          className="opacity-0 group-hover/embed:opacity-100 ml-0.5 hover:text-red-500 transition-all"
+                        >
+                          ×
+                        </span>
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setShowAddEmbed(true)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-background/60 transition-all"
+                      title="Add embed"
+                    >
+                      <Plus className="w-3 h-3" /> View
+                    </button>
                   </div>
                 </div>
 
-                {folderLists.length === 0 ? (
+                {selectedEmbedId ? (
+                  (() => {
+                    const embed = embeds.find((e) => e.id === selectedEmbedId);
+                    return embed ? (
+                      <div className="flex-1 flex flex-col overflow-hidden">
+                        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/20 flex-shrink-0">
+                          <span className="text-base">{embed.icon ?? "🌐"}</span>
+                          <span className="text-sm font-medium">{embed.name}</span>
+                          <a href={embed.url} target="_blank" rel="noopener noreferrer" className="ml-auto text-xs text-muted-foreground hover:text-[#e8170b] flex items-center gap-1 transition-colors">
+                            <ExternalLink className="w-3 h-3" /> Open in new tab
+                          </a>
+                        </div>
+                        <iframe src={embed.url} className="flex-1 w-full border-0" allow="fullscreen" title={embed.name} />
+                      </div>
+                    ) : null;
+                  })()
+                ) : folderLists.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-muted-foreground text-sm">
                     <Hash className="w-10 h-10 mb-3 opacity-20" />
                     <p>No lists in this folder yet.</p>
@@ -981,7 +1043,7 @@ export default function CampaignDetailPage() {
           ) : currentList ? (
             <>
               {/* List header */}
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-border flex-shrink-0">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-border flex-shrink-0 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <Hash className="w-4 h-4 text-muted-foreground" />
                   <h2 className="font-semibold">{currentList.name}</h2>
@@ -989,8 +1051,8 @@ export default function CampaignDetailPage() {
                     {currentList.tasks.length}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-0.5 p-1 bg-muted rounded-xl">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-0.5 p-1 bg-muted rounded-xl flex-wrap">
                     {([
                       { key: "list",     icon: List,        label: "List" },
                       { key: "kanban",   icon: LayoutGrid,  label: "Kanban" },
@@ -1001,10 +1063,10 @@ export default function CampaignDetailPage() {
                     ] as const).map(({ key, icon: Icon, label }) => (
                       <button
                         key={key}
-                        onClick={() => setCampaignView(key)}
+                        onClick={() => { setCampaignView(key); setSelectedEmbedId(null); }}
                         className={cn(
                           "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
-                          campaignView === key
+                          campaignView === key && !selectedEmbedId
                             ? "bg-background shadow-sm text-foreground"
                             : "text-muted-foreground hover:text-foreground"
                         )}
@@ -1012,6 +1074,41 @@ export default function CampaignDetailPage() {
                         <Icon className="w-3.5 h-3.5" /> {label}
                       </button>
                     ))}
+                    {/* Embed tabs */}
+                    {embeds.map((embed) => (
+                      <button
+                        key={embed.id}
+                        onClick={() => { setSelectedEmbedId(embed.id); setCampaignView("list"); }}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group/embed",
+                          selectedEmbedId === embed.id
+                            ? "bg-background shadow-sm text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <span className="text-sm leading-none">{embed.icon ?? "🌐"}</span>
+                        <span>{embed.name}</span>
+                        <span
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await fetch(`/api/campaigns/${id}/embeds/${embed.id}`, { method: "DELETE" });
+                            if (selectedEmbedId === embed.id) setSelectedEmbedId(null);
+                            refetchEmbeds();
+                          }}
+                          className="opacity-0 group-hover/embed:opacity-100 ml-0.5 hover:text-red-500 transition-all"
+                        >
+                          ×
+                        </span>
+                      </button>
+                    ))}
+                    {/* Add embed button */}
+                    <button
+                      onClick={() => setShowAddEmbed(true)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-background/60 transition-all"
+                      title="Add embed"
+                    >
+                      <Plus className="w-3 h-3" /> View
+                    </button>
                   </div>
                   <button
                     onClick={() => setShowTaskForm(true)}
@@ -1024,7 +1121,28 @@ export default function CampaignDetailPage() {
               </div>
 
               {/* Tasks */}
-              {currentList.tasks.length === 0 ? (
+              {selectedEmbedId ? (
+                (() => {
+                  const embed = embeds.find((e) => e.id === selectedEmbedId);
+                  return embed ? (
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/20 flex-shrink-0">
+                        <span className="text-base">{embed.icon ?? "🌐"}</span>
+                        <span className="text-sm font-medium">{embed.name}</span>
+                        <a href={embed.url} target="_blank" rel="noopener noreferrer" className="ml-auto text-xs text-muted-foreground hover:text-[#e8170b] flex items-center gap-1 transition-colors">
+                          <ExternalLink className="w-3 h-3" /> Open in new tab
+                        </a>
+                      </div>
+                      <iframe
+                        src={embed.url}
+                        className="flex-1 w-full border-0"
+                        allow="fullscreen"
+                        title={embed.name}
+                      />
+                    </div>
+                  ) : null;
+                })()
+              ) : currentList.tasks.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-muted-foreground text-sm">
                   <Target className="w-10 h-10 mb-3 opacity-20" />
                   <p>No tasks yet in this list.</p>
@@ -1122,6 +1240,18 @@ export default function CampaignDetailPage() {
           ) : null}
         </div>
       </div>
+
+      {showAddEmbed && (
+        <AddEmbedModal
+          campaignId={id}
+          onClose={() => setShowAddEmbed(false)}
+          onSuccess={(embed) => {
+            setShowAddEmbed(false);
+            setSelectedEmbedId(embed.id);
+            refetchEmbeds();
+          }}
+        />
+      )}
 
       {selectedTaskId && (
         <TaskDetail

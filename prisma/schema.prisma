@@ -186,10 +186,24 @@ model Campaign {
   folders            ProjectFolder[]
   recurringTemplates RecurringTemplate[]
   docs               Doc[]
+  embedViews         EmbedView[]
 
   @@index([departmentId])
   @@index([workspaceId])
   @@map("campaigns")
+}
+
+model EmbedView {
+  id         String   @id @default(cuid())
+  name       String
+  url        String
+  icon       String?
+  campaignId String
+  createdAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("embed_views")
 }
 
 model ProjectFolder {
