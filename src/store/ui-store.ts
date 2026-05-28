@@ -6,8 +6,8 @@ interface UIStore {
   toggleSidebar: () => void;
   taskView: "list" | "kanban" | "calendar";
   setTaskView: (view: "list" | "kanban" | "calendar") => void;
-  campaignView: "list" | "kanban" | "gantt";
-  setCampaignView: (view: "list" | "kanban" | "gantt") => void;
+  campaignView: "list" | "kanban" | "gantt" | "calendar" | "team" | "table";
+  setCampaignView: (view: "list" | "kanban" | "gantt" | "calendar" | "team" | "table") => void;
   expandedDepartments: Record<string, boolean>;
   toggleDepartment: (id: string) => void;
   activeTeamId: string | null;

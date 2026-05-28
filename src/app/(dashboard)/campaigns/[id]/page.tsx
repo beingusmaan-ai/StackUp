@@ -7,7 +7,7 @@ import {
   ArrowLeft, Target, Calendar, TrendingUp, Plus,
   BookTemplate, Edit2, List, LayoutGrid, GanttChart, Trash2, FileText,
   ChevronRight, ChevronDown, Folder as FolderIcon, Hash, Check, X as XIcon, Pencil,
-  Sparkles, Loader2,
+  Sparkles, Loader2, Users, Table2,
 } from "lucide-react";
 import Link from "next/link";
 import { PriorityBadge, CampaignStatusBadge } from "@/components/shared/StatusBadge";
@@ -20,6 +20,9 @@ import { CampaignTemplateForm } from "@/components/campaigns/CampaignTemplateFor
 import { CampaignHealthScore } from "@/components/campaigns/CampaignHealthScore";
 import { WrapUpReportModal } from "@/components/campaigns/WrapUpReportModal";
 import { GanttView } from "@/components/campaigns/GanttView";
+import { CalendarView } from "@/components/campaigns/CalendarView";
+import { TeamView } from "@/components/campaigns/TeamView";
+import { TableView } from "@/components/campaigns/TableView";
 import { TaskListGrouped } from "@/components/tasks/TaskListGrouped";
 import { useUIStore } from "@/store/ui-store";
 import { useSession } from "next-auth/react";
@@ -796,25 +799,28 @@ export default function CampaignDetailPage() {
                       {selectedFolder?.lists.length ?? 0} lists
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 p-1 bg-muted rounded-xl">
-                    <button
-                      onClick={() => setCampaignView("list")}
-                      className={cn(
-                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
-                        campaignView === "list" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <List className="w-3.5 h-3.5" /> List
-                    </button>
-                    <button
-                      onClick={() => setCampaignView("kanban")}
-                      className={cn(
-                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
-                        campaignView === "kanban" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <LayoutGrid className="w-3.5 h-3.5" /> Kanban
-                    </button>
+                  <div className="flex items-center gap-0.5 p-1 bg-muted rounded-xl">
+                    {([
+                      { key: "list",     icon: List,        label: "List" },
+                      { key: "kanban",   icon: LayoutGrid,  label: "Kanban" },
+                      { key: "gantt",    icon: GanttChart,  label: "Gantt" },
+                      { key: "calendar", icon: Calendar,    label: "Calendar" },
+                      { key: "team",     icon: Users,       label: "Team" },
+                      { key: "table",    icon: Table2,      label: "Table" },
+                    ] as const).map(({ key, icon: Icon, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => setCampaignView(key)}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                          campaignView === key
+                            ? "bg-background shadow-sm text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <Icon className="w-3.5 h-3.5" /> {label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -862,6 +868,30 @@ export default function CampaignDetailPage() {
                       </div>
                     ))}
                   </div>
+                ) : campaignView === "gantt" ? (
+                  <GanttView
+                    tasks={folderLists.flatMap((l) => l.tasks)}
+                    campaignStart={campaign.startDate}
+                    campaignEnd={campaign.endDate}
+                  />
+                ) : campaignView === "calendar" ? (
+                  <CalendarView
+                    tasks={folderLists.flatMap((l) => l.tasks.map((t) => ({ ...t, listName: l.name })))}
+                    onTaskClick={setSelectedTaskId}
+                  />
+                ) : campaignView === "team" ? (
+                  <TeamView
+                    tasks={folderLists.flatMap((l) => l.tasks.map((t) => ({ ...t, listName: l.name })))}
+                    onTaskClick={setSelectedTaskId}
+                  />
+                ) : campaignView === "table" ? (
+                  <TableView
+                    tasks={folderLists.flatMap((l) => l.tasks.map((t) => ({ ...t, listName: l.name })))}
+                    canManage={canManage}
+                    onTaskClick={setSelectedTaskId}
+                    onDeleteTask={deleteTask}
+                    deletingTaskId={deletingTaskId}
+                  />
                 ) : (
                   /* Kanban in folder view — all tasks from all lists combined */
                   <div className="p-4 overflow-auto flex-1">
@@ -960,40 +990,28 @@ export default function CampaignDetailPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 p-1 bg-muted rounded-xl">
-                    <button
-                      onClick={() => setCampaignView("list")}
-                      className={cn(
-                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
-                        campaignView === "list"
-                          ? "bg-background shadow-sm text-foreground"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <List className="w-3.5 h-3.5" /> List
-                    </button>
-                    <button
-                      onClick={() => setCampaignView("kanban")}
-                      className={cn(
-                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
-                        campaignView === "kanban"
-                          ? "bg-background shadow-sm text-foreground"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <LayoutGrid className="w-3.5 h-3.5" /> Kanban
-                    </button>
-                    <button
-                      onClick={() => setCampaignView("gantt")}
-                      className={cn(
-                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
-                        campaignView === "gantt"
-                          ? "bg-background shadow-sm text-foreground"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <GanttChart className="w-3.5 h-3.5" /> Gantt
-                    </button>
+                  <div className="flex items-center gap-0.5 p-1 bg-muted rounded-xl">
+                    {([
+                      { key: "list",     icon: List,        label: "List" },
+                      { key: "kanban",   icon: LayoutGrid,  label: "Kanban" },
+                      { key: "gantt",    icon: GanttChart,  label: "Gantt" },
+                      { key: "calendar", icon: Calendar,    label: "Calendar" },
+                      { key: "team",     icon: Users,       label: "Team" },
+                      { key: "table",    icon: Table2,      label: "Table" },
+                    ] as const).map(({ key, icon: Icon, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => setCampaignView(key)}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                          campaignView === key
+                            ? "bg-background shadow-sm text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <Icon className="w-3.5 h-3.5" /> {label}
+                      </button>
+                    ))}
                   </div>
                   <button
                     onClick={() => setShowTaskForm(true)}
@@ -1022,6 +1040,18 @@ export default function CampaignDetailPage() {
                   tasks={currentList.tasks}
                   campaignStart={campaign.startDate}
                   campaignEnd={campaign.endDate}
+                />
+              ) : campaignView === "calendar" ? (
+                <CalendarView tasks={currentList.tasks} onTaskClick={setSelectedTaskId} />
+              ) : campaignView === "team" ? (
+                <TeamView tasks={currentList.tasks} onTaskClick={setSelectedTaskId} />
+              ) : campaignView === "table" ? (
+                <TableView
+                  tasks={currentList.tasks}
+                  canManage={canManage}
+                  onTaskClick={setSelectedTaskId}
+                  onDeleteTask={deleteTask}
+                  deletingTaskId={deletingTaskId}
                 />
               ) : campaignView === "list" ? (
                 <TaskListGrouped
