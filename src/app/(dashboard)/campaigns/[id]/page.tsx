@@ -882,7 +882,9 @@ export default function CampaignDetailPage() {
                             <ExternalLink className="w-3 h-3" /> Open in new tab
                           </a>
                         </div>
-                        <iframe src={embed.url} className="w-full border-0" style={{ flex: 1, minHeight: 0, height: "100%" }} allow="fullscreen" title={embed.name} />
+                        <div className="flex-1 relative min-h-0">
+                          <iframe src={embed.url} className="absolute inset-0 w-full h-full border-0" allow="fullscreen" title={embed.name} />
+                        </div>
                       </div>
                     ) : null;
                   })()
@@ -1133,12 +1135,14 @@ export default function CampaignDetailPage() {
                           <ExternalLink className="w-3 h-3" /> Open in new tab
                         </a>
                       </div>
-                      <iframe
-                        src={embed.url}
-                        className="flex-1 w-full border-0"
-                        allow="fullscreen"
-                        title={embed.name}
-                      />
+                      <div className="flex-1 relative min-h-0">
+                        <iframe
+                          src={embed.url}
+                          className="absolute inset-0 w-full h-full border-0"
+                          allow="fullscreen"
+                          title={embed.name}
+                        />
+                      </div>
                     </div>
                   ) : null;
                 })()
