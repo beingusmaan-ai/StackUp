@@ -38,6 +38,7 @@ model User {
   taskTemplates         TaskTemplate[]       @relation("TaskTemplateCreator")
   templateVersions      TemplateVersion[]    @relation("TemplateVersionCreator")
   workspaceMemberships  WorkspaceMember[]
+  projectMemberships    ProjectMember[]
   conversationMembers   ConversationMember[]
   sentMessages          Message[]
   createdDocs           Doc[]                @relation("DocCreator")
@@ -187,10 +188,26 @@ model Campaign {
   recurringTemplates RecurringTemplate[]
   docs               Doc[]
   embedViews         EmbedView[]
+  members            ProjectMember[]
 
   @@index([departmentId])
   @@index([workspaceId])
   @@map("campaigns")
+}
+
+model ProjectMember {
+  id         String   @id @default(cuid())
+  campaignId String
+  userId     String
+  role       String   @default("MEMBER")
+  createdAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, userId])
+  @@index([campaignId])
+  @@map("project_members")
 }
 
 model EmbedView {

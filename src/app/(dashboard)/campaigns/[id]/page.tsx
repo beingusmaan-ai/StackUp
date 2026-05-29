@@ -110,6 +110,141 @@ const KANBAN_COLUMNS = [
   { key: "BLOCKED",          label: "Blocked",            color: "bg-red-50 dark:bg-red-950/30" },
 ];
 
+// ── Inline member search for the detail panel ──────────────────────────────
+function MemberSearchAdd({
+  existingIds,
+  allUsers,
+  onAdd,
+}: {
+  existingIds: string[];
+  allUsers: { id: string; name: string; image?: string | null; email?: string }[];
+  onAdd: (userId: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const candidates = allUsers.filter(
+    (u) => !existingIds.includes(u.id) && u.name.toLowerCase().includes(search.toLowerCase())
+  );
+  return (
+    <div className="mt-2 space-y-1.5">
+      <input
+        autoFocus
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search users to add…"
+        className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs outline-none focus:border-[#e8170b]/50 transition-colors"
+      />
+      {search && (
+        <div className="border border-border rounded-lg overflow-hidden">
+          {candidates.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-muted-foreground">No users found</p>
+          ) : (
+            candidates.slice(0, 6).map((u) => (
+              <button
+                key={u.id}
+                onClick={() => { onAdd(u.id); setSearch(""); }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-muted/60 transition-colors text-left"
+              >
+                <UserAvatar name={u.name} image={u.image} size="sm" />
+                <div>
+                  <p className="text-xs font-medium">{u.name}</p>
+                  {u.email && <p className="text-[10px] text-muted-foreground">{u.email}</p>}
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Project Members Panel ───────────────────────────────────────────────────
+function ProjectMembersPanel({ campaignId, canManage }: { campaignId: string; canManage: boolean }) {
+  const queryClient = useQueryClient();
+  const [showPicker, setShowPicker] = useState(false);
+  const [allUsers, setAllUsers] = useState<{ id: string; name: string; image?: string | null; email?: string }[]>([]);
+
+  const { data } = useQuery({
+    queryKey: ["project-members", campaignId],
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}/members`);
+      return res.json();
+    },
+  });
+
+  const members: { id: string; role: string; user: { id: string; name: string; image?: string | null } }[] = data?.data ?? [];
+
+  useEffect(() => {
+    if (showPicker && allUsers.length === 0) {
+      fetch("/api/users").then((r) => r.json()).then((d) => setAllUsers(d.data ?? []));
+    }
+  }, [showPicker, allUsers.length]);
+
+  async function addMember(userId: string) {
+    await fetch(`/api/campaigns/${campaignId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    queryClient.invalidateQueries({ queryKey: ["project-members", campaignId] });
+    queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+  }
+
+  async function removeMember(userId: string) {
+    await fetch(`/api/campaigns/${campaignId}/members/${userId}`, { method: "DELETE" });
+    queryClient.invalidateQueries({ queryKey: ["project-members", campaignId] });
+    queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+  }
+
+  if (members.length === 0 && !canManage) return null;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <p className="text-xs text-muted-foreground">Members</p>
+        {canManage && (
+          <button
+            onClick={() => setShowPicker((v) => !v)}
+            className="text-xs text-[#e8170b] hover:underline"
+          >
+            {showPicker ? "Done" : "+ Add"}
+          </button>
+        )}
+      </div>
+
+      {members.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">No members (visible to all)</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {members.map((m) => (
+            <div key={m.id} className="group relative flex items-center gap-1.5 px-2 py-1 bg-muted rounded-lg text-xs">
+              <UserAvatar name={m.user.name} image={m.user.image} size="sm" />
+              <span className="font-medium">{m.user.name}</span>
+              {m.role === "OWNER" && <span className="text-[10px] text-muted-foreground">(owner)</span>}
+              {canManage && m.role !== "OWNER" && (
+                <button
+                  onClick={() => removeMember(m.user.id)}
+                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-all"
+                >
+                  <XIcon className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showPicker && canManage && (
+        <MemberSearchAdd
+          existingIds={members.map((m) => m.user.id)}
+          allUsers={allUsers}
+          onAdd={addMember}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function CampaignDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -541,6 +676,7 @@ export default function CampaignDetailPage() {
             <p className="text-xs text-muted-foreground mb-0.5">Owner</p>
             <p className="text-sm font-medium">{campaign.owner.name}</p>
           </div>
+          <ProjectMembersPanel campaignId={id} canManage={canManage} />
         </div>
 
         <div>

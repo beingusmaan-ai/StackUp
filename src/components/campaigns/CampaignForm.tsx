@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { X, Sparkles, ChevronDown, Upload } from "lucide-react";
+import { MemberPicker } from "./MemberPicker";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/ui-store";
 import { ImportCampaignsModal } from "./ImportCampaignsModal";
 
-interface User { id: string; name: string }
+interface User { id: string; name: string; email?: string; image?: string | null }
 interface Department { id: string; name: string; color: string }
 
 interface CampaignFormProps {
@@ -35,6 +36,7 @@ export function CampaignForm({ onClose, onSuccess, editCampaign, defaultDepartme
   const [loading, setLoading] = useState(false);
   const [briefLoading, setBriefLoading] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [memberIds, setMemberIds] = useState<string[]>([]);
 
   const [form, setForm] = useState({
     name: editCampaign?.name || "",
@@ -51,7 +53,7 @@ export function CampaignForm({ onClose, onSuccess, editCampaign, defaultDepartme
   const { activeTeamId } = useUIStore();
 
   useEffect(() => {
-    const usersUrl = activeTeamId ? `/api/users?departmentId=${activeTeamId}` : "/api/users";
+    const usersUrl = "/api/users";
     Promise.all([
       fetch(usersUrl).then((r) => r.json()),
       fetch("/api/departments?myTeams=true").then((r) => r.json()),
@@ -105,6 +107,7 @@ export function CampaignForm({ onClose, onSuccess, editCampaign, defaultDepartme
         ownerId: form.ownerId || undefined,
         departmentId: form.departmentId || null,
         workspaceId: editCampaign ? undefined : (activeWorkspaceId ?? null),
+        memberIds: !editCampaign && memberIds.length > 0 ? memberIds : undefined,
       };
       const url = editCampaign ? `/api/campaigns/${editCampaign.id}` : "/api/campaigns";
       const method = editCampaign ? "PATCH" : "POST";
@@ -253,6 +256,14 @@ export function CampaignForm({ onClose, onSuccess, editCampaign, defaultDepartme
               </div>
             </div>
           </div>
+
+          {!editCampaign && (
+            <MemberPicker
+              selectedIds={memberIds}
+              onChange={setMemberIds}
+              allUsers={users}
+            />
+          )}
 
           {!editCampaign && (
             <div className={cn(

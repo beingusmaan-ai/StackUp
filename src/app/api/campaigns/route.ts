@@ -14,6 +14,7 @@ const campaignSchema = z.object({
   ownerId: z.string().optional(),
   departmentId: z.string().optional().nullable(),
   workspaceId: z.string().optional().nullable(),
+  memberIds: z.array(z.string()).optional(),
 });
 
 async function getUserAllowedDeptIds(session: { user: { id: string; email?: string | null; role?: string | null } }): Promise<string[] | null> {
@@ -70,28 +71,21 @@ export async function GET(req: NextRequest) {
     conditions.push({ OR: [{ workspaceId }, { workspaceId: null }] });
   }
 
-  if (!picker) {
-    if (allowedDeptIds !== null) {
-      // Non-admin (or admin in sidebar mode): restrict to their departments
-      const effectiveDeptIds =
-        departmentId && allowedDeptIds.includes(departmentId) ? [departmentId] : allowedDeptIds;
-      if (effectiveDeptIds.length > 0) {
-        // Show campaigns in their departments OR campaigns they own with no department
-        conditions.push({
-          OR: [
-            { departmentId: { in: effectiveDeptIds } },
-            { departmentId: null, ownerId: callerDbId },
-          ],
-        });
-      } else {
-        // User has no dept memberships — show only campaigns they own
-        conditions.push({ ownerId: callerDbId });
-      }
-    } else if (departmentId) {
-      conditions.push({ departmentId });
-    }
-  } else if (departmentId) {
+  if (picker && departmentId) {
     conditions.push({ departmentId });
+  } else if (!picker && departmentId && allowedDeptIds === null) {
+    conditions.push({ departmentId });
+  }
+
+  // Visibility: show campaigns that have no members (public), or where the user is a member or owner
+  if (allowedDeptIds !== null) {
+    conditions.push({
+      OR: [
+        { members: { none: {} } },
+        { ownerId: callerDbId },
+        { members: { some: { userId: callerDbId } } },
+      ],
+    });
   }
 
   const where = conditions.length > 0 ? { AND: conditions } : {};
@@ -103,6 +97,7 @@ export async function GET(req: NextRequest) {
       owner: { select: { id: true, name: true, image: true } },
       department: { select: { id: true, name: true, color: true } },
       workspace: { select: { id: true, name: true, color: true } },
+      members: { include: { user: { select: { id: true, name: true, image: true } } } },
       _count: { select: { tasks: true } },
       tasks: { select: { status: true } },
     },
@@ -175,9 +170,11 @@ export async function POST(req: NextRequest) {
       resolvedOwnerId = owner?.id ?? userId;
     }
 
+    const { memberIds, ...campaignData } = parsed.data;
+
     const campaign = await db.campaign.create({
       data: {
-        ...parsed.data,
+        ...campaignData,
         startDate: new Date(parsed.data.startDate),
         endDate: new Date(parsed.data.endDate),
         budget: parsed.data.budget ?? null,
@@ -191,6 +188,19 @@ export async function POST(req: NextRequest) {
         workspace: { select: { id: true, name: true, color: true } },
       },
     });
+
+    // Create project members if any were invited
+    if (memberIds && memberIds.length > 0) {
+      const allMemberIds = Array.from(new Set([resolvedOwnerId, ...memberIds]));
+      await db.projectMember.createMany({
+        data: allMemberIds.map((uid) => ({
+          campaignId: campaign.id,
+          userId: uid,
+          role: uid === resolvedOwnerId ? "OWNER" : "MEMBER",
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     return NextResponse.json({ data: campaign }, { status: 201 });
   } catch (err) {
