@@ -952,6 +952,28 @@ export default function CampaignDetailPage() {
                       {selectedFolder?.lists.length ?? 0} lists
                     </span>
                   </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={() => {
+                        const next = !showFilters;
+                        setShowFilters(next);
+                        if (next && activeFilters.length === 0) {
+                          setActiveFilters([{ id: Math.random().toString(36).slice(2), connector: "AND", field: null, operator: "is", values: [] }]);
+                        }
+                      }}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all",
+                        showFilters || activeFilters.length > 0
+                          ? "bg-[#e8170b]/10 border-[#e8170b]/30 text-[#e8170b]"
+                          : "border-border text-muted-foreground hover:text-foreground hover:border-border/80"
+                      )}
+                    >
+                      <Filter className="w-3.5 h-3.5" />
+                      Filters
+                      {activeFilters.length > 0 && (
+                        <span className="bg-[#e8170b] text-white rounded-full text-[10px] px-1.5 font-bold">{activeFilters.length}</span>
+                      )}
+                    </button>
                   <div className="flex items-center gap-0.5 p-1 bg-muted rounded-xl flex-wrap">
                     {([
                       { key: "list",     icon: List,        label: "List" },
@@ -1008,7 +1030,23 @@ export default function CampaignDetailPage() {
                       <Plus className="w-3 h-3" /> View
                     </button>
                   </div>
+                  </div>
                 </div>
+
+                {showFilters && !selectedEmbedId && (
+                  <FilterBar
+                    filters={activeFilters}
+                    onChange={setActiveFilters}
+                    assignees={Array.from(
+                      new Map(
+                        folderLists.flatMap((l) => l.tasks.flatMap((t) => [
+                          ...t.assignees.map((a) => [a.user.id, a.user] as [string, TaskUser]),
+                          ...(t.createdBy ? [[t.createdBy.id, t.createdBy] as [string, TaskUser]] : []),
+                        ]))
+                      ).values()
+                    )}
+                  />
+                )}
 
                 {selectedEmbedId ? (
                   (() => {
@@ -1062,7 +1100,7 @@ export default function CampaignDetailPage() {
                           )}
                         </div>
                         <TaskListGrouped
-                          tasks={list.tasks.map((t) => ({ ...t, listName: list.name }))}
+                          tasks={applyFilters(list.tasks, activeFilters).map((t) => ({ ...t, listName: list.name }))}
                           canManage={canManage}
                           onTaskClick={setSelectedTaskId}
                           onDeleteTask={deleteTask}
@@ -1074,23 +1112,23 @@ export default function CampaignDetailPage() {
                   </div>
                 ) : campaignView === "gantt" ? (
                   <GanttView
-                    tasks={folderLists.flatMap((l) => l.tasks)}
+                    tasks={applyFilters(folderLists.flatMap((l) => l.tasks), activeFilters)}
                     campaignStart={campaign.startDate}
                     campaignEnd={campaign.endDate}
                   />
                 ) : campaignView === "calendar" ? (
                   <CalendarView
-                    tasks={folderLists.flatMap((l) => l.tasks.map((t) => ({ ...t, listName: l.name })))}
+                    tasks={applyFilters(folderLists.flatMap((l) => l.tasks.map((t) => ({ ...t, listName: l.name }))), activeFilters)}
                     onTaskClick={setSelectedTaskId}
                   />
                 ) : campaignView === "team" ? (
                   <TeamView
-                    tasks={folderLists.flatMap((l) => l.tasks.map((t) => ({ ...t, listName: l.name })))}
+                    tasks={applyFilters(folderLists.flatMap((l) => l.tasks.map((t) => ({ ...t, listName: l.name }))), activeFilters)}
                     onTaskClick={setSelectedTaskId}
                   />
                 ) : campaignView === "table" ? (
                   <TableView
-                    tasks={folderLists.flatMap((l) => l.tasks.map((t) => ({ ...t, listName: l.name })))}
+                    tasks={applyFilters(folderLists.flatMap((l) => l.tasks.map((t) => ({ ...t, listName: l.name }))), activeFilters)}
                     canManage={canManage}
                     onTaskClick={setSelectedTaskId}
                     onDeleteTask={deleteTask}
@@ -1101,7 +1139,7 @@ export default function CampaignDetailPage() {
                   <div className="p-4 overflow-auto flex-1">
                     <div className="flex gap-3 min-w-max">
                       {KANBAN_COLUMNS.map((col) => {
-                        const allTasks = folderLists.flatMap((l) => l.tasks.map((t) => ({ ...t, listName: l.name })));
+                        const allTasks = applyFilters(folderLists.flatMap((l) => l.tasks.map((t) => ({ ...t, listName: l.name }))), activeFilters);
                         const colTasks = allTasks.filter((t) => t.status === col.key);
                         return (
                           <div key={col.key} className="w-64 flex-shrink-0">

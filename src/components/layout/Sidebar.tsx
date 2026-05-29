@@ -12,10 +12,12 @@ import {
 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { TeamSwitcher } from "./TeamSwitcher";
 import { SpacesTree } from "./SpacesTree";
 import { TaskForm } from "@/components/tasks/TaskForm";
 import { CampaignForm } from "@/components/campaigns/CampaignForm";
+import { SetStatusModal } from "./SetStatusModal";
 
 const LOGO_B64 = "data:image/jpeg;base64,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";
 
@@ -75,6 +77,20 @@ export function Sidebar() {
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showCampaignForm, setShowCampaignForm] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+
+  const { data: statusData } = useQuery({
+    queryKey: ["my-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/users/me/status");
+      return res.json();
+    },
+    enabled: !!session?.user,
+    staleTime: 30_000,
+  });
+  const rawStatus = statusData?.data;
+  const isExpired = rawStatus?.statusExpiresAt ? new Date(rawStatus.statusExpiresAt) < new Date() : false;
+  const userStatus = isExpired ? null : rawStatus;
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadComments, setUnreadComments] = useState(0);
   const createMenuRef = useRef<HTMLDivElement>(null);
@@ -324,15 +340,27 @@ export function Sidebar() {
           {/* User + sign out */}
           <div className="border-t border-black/[0.06] dark:border-white/[0.06] p-2 flex-shrink-0 space-y-0.5">
             {session?.user && (
-              <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg mb-0.5">
-                <div className="w-6 h-6 rounded-full bg-[#e8170b] flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0">
-                  {getInitials(session.user.name || "U")}
+              <button
+                onClick={() => setShowStatusModal(true)}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg mb-0.5 hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-all text-left"
+              >
+                <div className="relative w-6 h-6 flex-shrink-0">
+                  <div className="w-6 h-6 rounded-full bg-[#e8170b] flex items-center justify-center text-[9px] font-bold text-white">
+                    {getInitials(session.user.name || "U")}
+                  </div>
+                  {userStatus?.statusEmoji && (
+                    <span className="absolute -bottom-0.5 -right-1 text-[10px] leading-none">{userStatus.statusEmoji}</span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-semibold text-gray-800 dark:text-white/90 truncate">{session.user.name}</p>
-                  <p className="text-[9px] text-gray-400 dark:text-white/35 truncate">{session.user.role?.replace(/_/g, " ")}</p>
+                  {userStatus?.statusMessage ? (
+                    <p className="text-[9px] text-[#e8170b]/80 dark:text-[#e8170b]/70 truncate">{userStatus.statusMessage}</p>
+                  ) : (
+                    <p className="text-[9px] text-gray-400 dark:text-white/35 truncate">Set a status…</p>
+                  )}
                 </div>
-              </div>
+              </button>
             )}
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
@@ -356,6 +384,13 @@ export function Sidebar() {
         <CampaignForm
           onClose={() => setShowCampaignForm(false)}
           onSuccess={() => setShowCampaignForm(false)}
+        />
+      )}
+      {showStatusModal && (
+        <SetStatusModal
+          onClose={() => setShowStatusModal(false)}
+          currentStatus={userStatus}
+          workspaceName={session?.user?.name?.split(" ")[0] ?? "Your"}
         />
       )}
 
