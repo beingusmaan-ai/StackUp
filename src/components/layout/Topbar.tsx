@@ -4,7 +4,7 @@ import {
   Bell, Sun, Moon, Search, ChevronRight, Sparkles,
   LayoutDashboard, CheckSquare, Megaphone, CalendarDays,
   Users, BarChart3, Clock, Settings, BarChart2, Layers,
-  Smile, LogOut, Palette, BellOff, ClipboardList,
+  Smile, LogOut, Palette, BellOff, ClipboardList, Video,
 } from "lucide-react";
 import { AskAIPanel } from "@/components/ai/AskAIPanel";
 import { useTheme } from "next-themes";
@@ -20,6 +20,9 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SetStatusModal } from "./SetStatusModal";
 import { NotepadPanel } from "./NotepadPanel";
+import { RecordClipPopover } from "./RecordClipPopover";
+import { ClipsPanel } from "./ClipsPanel";
+import { useScreenRecorder } from "@/hooks/useScreenRecorder";
 
 type PageMeta = { label: string; icon: React.ComponentType<{ className?: string }> };
 
@@ -54,8 +57,13 @@ export function Topbar() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showMuteMenu, setShowMuteMenu] = useState(false);
   const [showNotepad, setShowNotepad] = useState(false);
+  const [showRecordPopover, setShowRecordPopover] = useState(false);
+  const [showClipsPanel, setShowClipsPanel] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const notepadBtnRef = useRef<HTMLButtonElement>(null);
+  const recordContainerRef = useRef<HTMLDivElement>(null);
+
+  const { isRecording, clips, elapsedMs, startRecording, stopRecording, deleteClip } = useScreenRecorder();
 
   const MUTE_OPTIONS = [
     { label: "For 30 minutes", minutes: 30 },
@@ -102,6 +110,9 @@ export function Topbar() {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setShowUserMenu(false);
       }
+      if (recordContainerRef.current && !recordContainerRef.current.contains(e.target as Node)) {
+        setShowRecordPopover(false);
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -134,6 +145,10 @@ export function Topbar() {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         searchRef.current?.focus();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === "s") {
+        e.preventDefault();
+        setShowRecordPopover((v) => !v);
       }
     }
     document.addEventListener("keydown", handleKey);
@@ -239,6 +254,33 @@ export function Topbar() {
         >
           <ClipboardList className="w-4 h-4" />
         </button>
+
+        {/* Record Clip */}
+        <div ref={recordContainerRef} className="relative">
+          <button
+            onClick={() => { setShowClipsPanel(false); setShowRecordPopover((v) => !v); }}
+            className={cn(
+              "relative w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors",
+              showRecordPopover || isRecording ? "text-[#e8170b] bg-[#e8170b]/10" : "text-muted-foreground hover:text-foreground"
+            )}
+            title="Record Clip (Ctrl+Alt+S)"
+          >
+            <Video className="w-4 h-4" />
+            {isRecording && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-[#e8170b] rounded-full animate-pulse ring-2 ring-background" />
+            )}
+          </button>
+
+          {showRecordPopover && (
+            <RecordClipPopover
+              isRecording={isRecording}
+              elapsedMs={elapsedMs}
+              onStart={(micId) => { startRecording(micId); }}
+              onStop={stopRecording}
+              onOpenClips={() => { setShowRecordPopover(false); setShowClipsPanel(true); }}
+            />
+          )}
+        </div>
 
         {/* Notifications */}
         <Link
@@ -429,6 +471,9 @@ export function Topbar() {
       )}
       {showNotepad && (
         <NotepadPanel onClose={() => setShowNotepad(false)} anchorRef={notepadBtnRef} />
+      )}
+      {showClipsPanel && (
+        <ClipsPanel clips={clips} onClose={() => setShowClipsPanel(false)} onDelete={deleteClip} />
       )}
     </>
   );
