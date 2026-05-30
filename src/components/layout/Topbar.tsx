@@ -4,7 +4,7 @@ import {
   Bell, Sun, Moon, Search, ChevronRight, Sparkles,
   LayoutDashboard, CheckSquare, Megaphone, CalendarDays,
   Users, BarChart3, Clock, Settings, BarChart2, Layers,
-  Smile, LogOut, Palette, BellOff, ClipboardList, Video,
+  Smile, LogOut, Palette, BellOff, ClipboardList, Video, AlarmClock,
 } from "lucide-react";
 import { AskAIPanel } from "@/components/ai/AskAIPanel";
 import { useTheme } from "next-themes";
@@ -23,6 +23,7 @@ import { NotepadPanel } from "./NotepadPanel";
 import { RecordClipPopover } from "./RecordClipPopover";
 import { ClipsPanel } from "./ClipsPanel";
 import { useScreenRecorder } from "@/hooks/useScreenRecorder";
+import { CreateReminderModal } from "./CreateReminderModal";
 
 type PageMeta = { label: string; icon: React.ComponentType<{ className?: string }> };
 
@@ -59,6 +60,7 @@ export function Topbar() {
   const [showNotepad, setShowNotepad] = useState(false);
   const [showRecordPopover, setShowRecordPopover] = useState(false);
   const [showClipsPanel, setShowClipsPanel] = useState(false);
+  const [showReminderModal, setShowReminderModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const notepadBtnRef = useRef<HTMLButtonElement>(null);
   const recordContainerRef = useRef<HTMLDivElement>(null);
@@ -282,6 +284,15 @@ export function Topbar() {
           )}
         </div>
 
+        {/* Reminders */}
+        <button
+          onClick={() => setShowReminderModal(true)}
+          className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          title="Create Reminder"
+        >
+          <AlarmClock className="w-4 h-4" />
+        </button>
+
         {/* Notifications */}
         <Link
           href="/notifications"
@@ -474,6 +485,9 @@ export function Topbar() {
       )}
       {showClipsPanel && (
         <ClipsPanel clips={clips} onClose={() => setShowClipsPanel(false)} onDelete={deleteClip} />
+      )}
+      {showReminderModal && (
+        <CreateReminderModal onClose={() => setShowReminderModal(false)} />
       )}
     </>
   );
