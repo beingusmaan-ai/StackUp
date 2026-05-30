@@ -4,10 +4,11 @@ import {
   Bell, Sun, Moon, Search, ChevronRight, Sparkles,
   LayoutDashboard, CheckSquare, Megaphone, CalendarDays,
   Users, BarChart3, Clock, Settings, BarChart2, Layers,
+  Smile, LogOut, Palette,
 } from "lucide-react";
 import { AskAIPanel } from "@/components/ai/AskAIPanel";
 import { useTheme } from "next-themes";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getInitials } from "@/lib/utils";
@@ -16,6 +17,8 @@ import { useUIStore } from "@/store/ui-store";
 import { cn } from "@/lib/utils";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { SetStatusModal } from "./SetStatusModal";
 
 type PageMeta = { label: string; icon: React.ComponentType<{ className?: string }> };
 
@@ -45,6 +48,32 @@ export function Topbar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
   const [aiInitial, setAiInitial] = useState("");
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const { data: statusData } = useQuery({
+    queryKey: ["my-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/users/me/status");
+      return res.json();
+    },
+    enabled: !!session?.user,
+    staleTime: 30_000,
+  });
+  const rawStatus = statusData?.data;
+  const isExpired = rawStatus?.statusExpiresAt ? new Date(rawStatus.statusExpiresAt) < new Date() : false;
+  const userStatus = isExpired ? null : rawStatus;
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   useEffect(() => {
     if (!activeTeamId) { setActiveTeamName(null); return; }
@@ -175,33 +204,132 @@ export function Topbar() {
           <span className="absolute top-1 right-1 w-2 h-2 bg-[#e8170b] rounded-full ring-2 ring-background" />
         </Link>
 
-        {/* Avatar */}
+        {/* Avatar + dropdown */}
         {session?.user && (
-          <Link
-            href="/settings"
-            className="flex items-center gap-2 pl-1 rounded-lg hover:bg-muted transition-colors group ml-0.5 pr-1 py-1"
-          >
-            {session.user.image ? (
-              <div className="w-7 h-7 rounded-full overflow-hidden ring-2 ring-[#e8170b]/20 group-hover:ring-[#e8170b]/40 transition-all flex-shrink-0">
-                <UserAvatar name={session.user.name || "U"} image={session.user.image} size="sm" className="w-7 h-7" />
+          <div ref={menuRef} className="relative ml-0.5">
+            <button
+              onClick={() => setShowUserMenu((v) => !v)}
+              className="flex items-center gap-2 pl-1 pr-1 py-1 rounded-lg hover:bg-muted transition-colors group"
+            >
+              <div className="relative flex-shrink-0">
+                {session.user.image ? (
+                  <div className="w-7 h-7 rounded-full overflow-hidden ring-2 ring-[#e8170b]/20 group-hover:ring-[#e8170b]/40 transition-all">
+                    <UserAvatar name={session.user.name || "U"} image={session.user.image} size="sm" className="w-7 h-7" />
+                  </div>
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-[#e8170b] flex items-center justify-center text-[10px] font-bold text-white ring-2 ring-[#e8170b]/20 group-hover:ring-[#e8170b]/40 transition-all">
+                    {getInitials(session.user.name || "U")}
+                  </div>
+                )}
+                {userStatus?.statusEmoji && (
+                  <span className="absolute -bottom-0.5 -right-1 text-[10px] leading-none select-none">{userStatus.statusEmoji}</span>
+                )}
               </div>
-            ) : (
-              <div className="w-7 h-7 rounded-full bg-[#e8170b] flex items-center justify-center text-[10px] font-bold text-white ring-2 ring-[#e8170b]/20 group-hover:ring-[#e8170b]/40 transition-all flex-shrink-0">
-                {getInitials(session.user.name || "U")}
+              <div className="hidden lg:block text-left">
+                <p className="text-[12px] font-semibold text-foreground leading-tight">{session.user.name?.split(" ")[0]}</p>
+                <p className="text-[10px] leading-tight truncate max-w-[80px]">
+                  {userStatus?.statusMessage
+                    ? <span className="text-[#e8170b]/70">{userStatus.statusMessage}</span>
+                    : <span className="text-muted-foreground capitalize">{session.user.role?.toLowerCase().replace(/_/g, " ") ?? "member"}</span>
+                  }
+                </p>
+              </div>
+            </button>
+
+            {/* Dropdown */}
+            {showUserMenu && (
+              <div className="absolute right-0 top-full mt-2 w-64 bg-background border border-border rounded-2xl shadow-2xl z-50 overflow-hidden">
+                {/* User header */}
+                <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border">
+                  <div className="relative flex-shrink-0">
+                    {session.user.image ? (
+                      <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-[#e8170b]/20">
+                        <UserAvatar name={session.user.name || "U"} image={session.user.image} size="md" />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-[#e8170b] flex items-center justify-center text-sm font-bold text-white">
+                        {getInitials(session.user.name || "U")}
+                      </div>
+                    )}
+                    {userStatus?.statusEmoji && (
+                      <span className="absolute -bottom-0.5 -right-1 text-[12px] leading-none">{userStatus.statusEmoji}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{session.user.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {userStatus?.statusMessage ?? "Online"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Menu items */}
+                <div className="py-1.5">
+                  <button
+                    onClick={() => { setShowUserMenu(false); setShowStatusModal(true); }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted/60 transition-colors text-left"
+                  >
+                    <Smile className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span>Set status</span>
+                    {userStatus?.statusEmoji && (
+                      <span className="ml-auto text-base leading-none">{userStatus.statusEmoji}</span>
+                    )}
+                  </button>
+
+                  <div className="my-1 border-t border-border/60" />
+
+                  <Link
+                    href="/notifications"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted/60 transition-colors"
+                  >
+                    <Bell className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span>Notifications</span>
+                  </Link>
+
+                  <Link
+                    href="/settings"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted/60 transition-colors"
+                  >
+                    <Settings className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span>Settings</span>
+                  </Link>
+
+                  <button
+                    onClick={() => { setTheme(theme === "dark" ? "light" : "dark"); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted/60 transition-colors text-left"
+                  >
+                    <Palette className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span>Theme</span>
+                    <span className="ml-auto text-xs text-muted-foreground capitalize">{theme}</span>
+                  </button>
+
+                  <div className="my-1 border-t border-border/60" />
+
+                  <button
+                    onClick={() => signOut({ callbackUrl: "/login" })}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-950/20 text-red-500 hover:text-red-600 transition-colors text-left"
+                  >
+                    <LogOut className="w-4 h-4 flex-shrink-0" />
+                    <span>Sign out</span>
+                  </button>
+                </div>
               </div>
             )}
-            <div className="hidden lg:block text-left">
-              <p className="text-[12px] font-semibold text-foreground leading-tight">{session.user.name?.split(" ")[0]}</p>
-              <p className="text-[10px] text-muted-foreground leading-tight capitalize">
-                {session.user.role?.toLowerCase().replace(/_/g, " ") ?? "member"}
-              </p>
-            </div>
-          </Link>
+          </div>
         )}
       </div>
     </header>
 
       <AskAIPanel open={aiOpen} onClose={() => setAiOpen(false)} initialQuestion={aiInitial} />
+      {showStatusModal && (
+        <SetStatusModal
+          onClose={() => setShowStatusModal(false)}
+          currentStatus={userStatus}
+          workspaceName={session?.user?.name?.split(" ")[0] ?? "Your"}
+        />
+      )}
     </>
   );
 }
