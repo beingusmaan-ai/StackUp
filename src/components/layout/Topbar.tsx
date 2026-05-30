@@ -4,7 +4,7 @@ import {
   Bell, Sun, Moon, Search, ChevronRight, Sparkles,
   LayoutDashboard, CheckSquare, Megaphone, CalendarDays,
   Users, BarChart3, Clock, Settings, BarChart2, Layers,
-  Smile, LogOut, Palette,
+  Smile, LogOut, Palette, BellOff,
 } from "lucide-react";
 import { AskAIPanel } from "@/components/ai/AskAIPanel";
 import { useTheme } from "next-themes";
@@ -17,7 +17,7 @@ import { useUIStore } from "@/store/ui-store";
 import { cn } from "@/lib/utils";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SetStatusModal } from "./SetStatusModal";
 
 type PageMeta = { label: string; icon: React.ComponentType<{ className?: string }> };
@@ -40,6 +40,7 @@ export function Topbar() {
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
   const { sidebarCollapsed, activeTeamId, activeWorkspaceId } = useUIStore();
+  const queryClient = useQueryClient();
   const pathname = usePathname();
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -50,7 +51,33 @@ export function Topbar() {
   const [aiInitial, setAiInitial] = useState("");
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showMuteMenu, setShowMuteMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const MUTE_OPTIONS = [
+    { label: "For 30 minutes", minutes: 30 },
+    { label: "For 1 hour",     minutes: 60 },
+    { label: "For 4 hours",    minutes: 240 },
+    { label: "Until tomorrow", minutes: 60 * 24 },
+    { label: "Until next week", minutes: 60 * 24 * 7 },
+  ];
+
+  async function handleMute(minutes: number) {
+    const mutedUntil = new Date(Date.now() + minutes * 60_000).toISOString();
+    await fetch("/api/users/me/mute", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mutedUntil }),
+    });
+    queryClient.invalidateQueries({ queryKey: ["my-status"] });
+    setShowMuteMenu(false);
+    setShowUserMenu(false);
+  }
+
+  async function handleUnmute() {
+    await fetch("/api/users/me/mute", { method: "DELETE" });
+    queryClient.invalidateQueries({ queryKey: ["my-status"] });
+  }
 
   const { data: statusData } = useQuery({
     queryKey: ["my-status"],
@@ -64,6 +91,8 @@ export function Topbar() {
   const rawStatus = statusData?.data;
   const isExpired = rawStatus?.statusExpiresAt ? new Date(rawStatus.statusExpiresAt) < new Date() : false;
   const userStatus = isExpired ? null : rawStatus;
+  const mutedUntil = rawStatus?.notificationsMutedUntil ? new Date(rawStatus.notificationsMutedUntil) : null;
+  const isMuted = !!mutedUntil && mutedUntil > new Date();
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -200,8 +229,8 @@ export function Topbar() {
           href="/notifications"
           className="relative w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
         >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-[#e8170b] rounded-full ring-2 ring-background" />
+          {isMuted ? <BellOff className="w-4 h-4 text-muted-foreground/50" /> : <Bell className="w-4 h-4" />}
+          {!isMuted && <span className="absolute top-1 right-1 w-2 h-2 bg-[#e8170b] rounded-full ring-2 ring-background" />}
         </Link>
 
         {/* Avatar + dropdown */}
@@ -238,9 +267,9 @@ export function Topbar() {
 
             {/* Dropdown */}
             {showUserMenu && (
-              <div className="absolute right-0 top-full mt-2 w-64 bg-background border border-border rounded-2xl shadow-2xl z-50 overflow-hidden">
+              <div className="absolute right-0 top-full mt-2 w-64 bg-background border border-border rounded-2xl shadow-2xl z-50">
                 {/* User header */}
-                <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border">
+                <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border rounded-t-2xl overflow-hidden">
                   <div className="relative flex-shrink-0">
                     {session.user.image ? (
                       <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-[#e8170b]/20">
@@ -275,6 +304,38 @@ export function Topbar() {
                       <span className="ml-auto text-base leading-none">{userStatus.statusEmoji}</span>
                     )}
                   </button>
+
+                  {/* Mute notifications with flyout */}
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setShowMuteMenu(true)}
+                    onMouseLeave={() => setShowMuteMenu(false)}
+                  >
+                    <button
+                      onClick={isMuted ? handleUnmute : undefined}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted/60 transition-colors text-left"
+                    >
+                      <BellOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <span>{isMuted ? `Muted until ${mutedUntil?.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Mute notifications"}</span>
+                      {!isMuted && <ChevronRight className="w-3.5 h-3.5 text-muted-foreground ml-auto" />}
+                      {isMuted && <span className="ml-auto text-xs text-[#e8170b] font-medium">Unmute</span>}
+                    </button>
+
+                    {showMuteMenu && !isMuted && (
+                      <div className="absolute right-full top-0 w-52 bg-background border border-border rounded-xl shadow-xl py-1.5 z-50">
+                        <p className="px-4 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Mute notifications</p>
+                        {MUTE_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.label}
+                            onClick={() => handleMute(opt.minutes)}
+                            className="w-full text-left px-4 py-2 text-sm hover:bg-muted/60 transition-colors"
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <div className="my-1 border-t border-border/60" />
 

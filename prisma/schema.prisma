@@ -18,9 +18,10 @@ model User {
   isActive         Boolean  @default(true)
   image            String?
   avatarData       String?
-  statusEmoji      String?
-  statusMessage    String?
-  statusExpiresAt  DateTime?
+  statusEmoji             String?
+  statusMessage           String?
+  statusExpiresAt         DateTime?
+  notificationsMutedUntil DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

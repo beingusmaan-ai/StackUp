@@ -8,7 +8,7 @@ export async function GET() {
 
   const user = await db.user.findUnique({
     where: { email: session.user.email },
-    select: { statusEmoji: true, statusMessage: true, statusExpiresAt: true },
+    select: { statusEmoji: true, statusMessage: true, statusExpiresAt: true, notificationsMutedUntil: true },
   });
 
   return NextResponse.json({ data: user });
