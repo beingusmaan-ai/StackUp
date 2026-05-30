@@ -5,6 +5,7 @@ interface UserAvatarProps {
   image?: string | null;
   size?: "xs" | "sm" | "md" | "lg";
   className?: string;
+  statusEmoji?: string | null;
 }
 
 const sizeClasses = {
@@ -25,23 +26,22 @@ function getColor(name: string): string {
   return colors[idx];
 }
 
-export function UserAvatar({ name, image, size = "md", className }: UserAvatarProps) {
+function AvatarInner({ name, image, size, className }: Omit<UserAvatarProps, "statusEmoji">) {
   if (image) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={image}
         alt={name}
-        className={cn("rounded-full object-cover", sizeClasses[size], className)}
+        className={cn("rounded-full object-cover flex-shrink-0", sizeClasses[size ?? "md"], className)}
       />
     );
   }
-
   return (
     <div
       className={cn(
         "rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0",
-        sizeClasses[size],
+        sizeClasses[size ?? "md"],
         getColor(name),
         className
       )}
@@ -51,7 +51,28 @@ export function UserAvatar({ name, image, size = "md", className }: UserAvatarPr
   );
 }
 
-export function AvatarGroup({ users, max = 3 }: { users: { name: string; image?: string | null }[]; max?: number }) {
+export function UserAvatar({ name, image, size = "md", className, statusEmoji }: UserAvatarProps) {
+  if (!statusEmoji) {
+    return <AvatarInner name={name} image={image} size={size} className={className} />;
+  }
+
+  return (
+    <div className="relative flex-shrink-0 inline-flex">
+      <AvatarInner name={name} image={image} size={size} className={className} />
+      <span className="absolute -bottom-0.5 -right-1 text-[10px] leading-none select-none">
+        {statusEmoji}
+      </span>
+    </div>
+  );
+}
+
+export function AvatarGroup({
+  users,
+  max = 3,
+}: {
+  users: { name: string; image?: string | null; statusEmoji?: string | null }[];
+  max?: number;
+}) {
   const visible = users.slice(0, max);
   const rest = users.length - max;
 
@@ -59,7 +80,7 @@ export function AvatarGroup({ users, max = 3 }: { users: { name: string; image?:
     <div className="flex -space-x-2">
       {visible.map((u, i) => (
         <div key={i} className="ring-2 ring-background rounded-full">
-          <UserAvatar name={u.name} image={u.image} size="sm" />
+          <UserAvatar name={u.name} image={u.image} size="sm" statusEmoji={u.statusEmoji} />
         </div>
       ))}
       {rest > 0 && (

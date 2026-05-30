@@ -68,6 +68,9 @@ export async function GET(req: NextRequest) {
       role: true,
       marketingRole: true,
       image: true,
+      statusEmoji: true,
+      statusMessage: true,
+      statusExpiresAt: true,
       assignedTasks: {
         select: { task: { select: { status: true, dueDate: true } } },
       },
@@ -82,6 +85,7 @@ export async function GET(req: NextRequest) {
     ).length;
     const rate = assigned > 0 ? Math.round((completed / assigned) * 100) : 0;
 
+    const isExpired = user.statusExpiresAt ? user.statusExpiresAt < now : false;
     return {
       id: user.id,
       name: user.name,
@@ -89,6 +93,8 @@ export async function GET(req: NextRequest) {
       role: user.role,
       marketingRole: user.marketingRole ?? null,
       image: user.image ?? null,
+      statusEmoji: isExpired ? null : (user.statusEmoji ?? null),
+      statusMessage: isExpired ? null : (user.statusMessage ?? null),
       assigned,
       completed,
       delayed,

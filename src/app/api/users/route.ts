@@ -66,6 +66,9 @@ export async function GET(req: NextRequest) {
       department: true,
       isActive: true,
       image: true,
+      statusEmoji: true,
+      statusMessage: true,
+      statusExpiresAt: true,
       createdAt: true,
       departmentMemberships: {
         select: { departmentId: true, role: true },

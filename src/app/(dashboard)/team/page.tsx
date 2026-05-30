@@ -36,6 +36,8 @@ interface TeamUser {
   role: string;
   marketingRole: string | null;
   image: string | null;
+  statusEmoji: string | null;
+  statusMessage: string | null;
   assigned: number;
   completed: number;
   delayed: number;
@@ -222,10 +224,14 @@ export default function TeamPage() {
               >
                 {/* Member */}
                 <div className="px-4 py-3 flex items-center gap-3 min-w-0">
-                  <UserAvatar name={user.name} image={user.image} size="sm" />
+                  <UserAvatar name={user.name} image={user.image} size="sm" statusEmoji={user.statusEmoji} />
                   <div className="min-w-0">
                     <p className="text-[13px] font-medium text-foreground truncate">{user.name}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
+                    {user.statusMessage ? (
+                      <p className="text-[11px] text-[#e8170b]/70 truncate">{user.statusMessage}</p>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
+                    )}
                   </div>
                 </div>
 
