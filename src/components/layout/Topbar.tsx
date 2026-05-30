@@ -4,7 +4,7 @@ import {
   Bell, Sun, Moon, Search, ChevronRight, Sparkles,
   LayoutDashboard, CheckSquare, Megaphone, CalendarDays,
   Users, BarChart3, Clock, Settings, BarChart2, Layers,
-  Smile, LogOut, Palette, BellOff,
+  Smile, LogOut, Palette, BellOff, ClipboardList,
 } from "lucide-react";
 import { AskAIPanel } from "@/components/ai/AskAIPanel";
 import { useTheme } from "next-themes";
@@ -19,6 +19,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SetStatusModal } from "./SetStatusModal";
+import { NotepadPanel } from "./NotepadPanel";
 
 type PageMeta = { label: string; icon: React.ComponentType<{ className?: string }> };
 
@@ -52,7 +53,9 @@ export function Topbar() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showMuteMenu, setShowMuteMenu] = useState(false);
+  const [showNotepad, setShowNotepad] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const notepadBtnRef = useRef<HTMLButtonElement>(null);
 
   const MUTE_OPTIONS = [
     { label: "For 30 minutes", minutes: 30 },
@@ -222,6 +225,19 @@ export function Topbar() {
           {theme === "dark"
             ? <Sun className="w-4 h-4" />
             : <Moon className="w-4 h-4" />}
+        </button>
+
+        {/* Notepad */}
+        <button
+          ref={notepadBtnRef}
+          onClick={() => setShowNotepad((v) => !v)}
+          className={cn(
+            "w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors",
+            showNotepad ? "text-[#e8170b] bg-[#e8170b]/10" : "text-muted-foreground hover:text-foreground"
+          )}
+          title="Notepad"
+        >
+          <ClipboardList className="w-4 h-4" />
         </button>
 
         {/* Notifications */}
@@ -410,6 +426,9 @@ export function Topbar() {
           currentStatus={userStatus}
           workspaceName={session?.user?.name?.split(" ")[0] ?? "Your"}
         />
+      )}
+      {showNotepad && (
+        <NotepadPanel onClose={() => setShowNotepad(false)} anchorRef={notepadBtnRef} />
       )}
     </>
   );
