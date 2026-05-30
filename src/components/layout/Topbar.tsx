@@ -296,14 +296,34 @@ export function Topbar() {
                     <span>Settings</span>
                   </Link>
 
-                  <button
-                    onClick={() => { setTheme(theme === "dark" ? "light" : "dark"); setShowUserMenu(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted/60 transition-colors text-left"
-                  >
+                  <div className="flex items-center gap-3 px-4 py-2">
                     <Palette className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <span>Theme</span>
-                    <span className="ml-auto text-xs text-muted-foreground capitalize">{theme}</span>
-                  </button>
+                    <span className="text-sm">Theme</span>
+                    <div className="ml-auto flex items-center gap-0.5 p-0.5 bg-muted rounded-lg">
+                      <button
+                        onClick={() => setTheme("light")}
+                        className={cn(
+                          "flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all",
+                          theme === "light"
+                            ? "bg-background shadow-sm text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <Sun className="w-3 h-3" /> Light
+                      </button>
+                      <button
+                        onClick={() => setTheme("dark")}
+                        className={cn(
+                          "flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all",
+                          theme === "dark"
+                            ? "bg-background shadow-sm text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <Moon className="w-3 h-3" /> Dark
+                      </button>
+                    </div>
+                  </div>
 
                   <div className="my-1 border-t border-border/60" />
 
